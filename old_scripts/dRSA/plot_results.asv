@@ -1,0 +1,217 @@
+% "alexnet_fc_layer5"
+%
+results_dir = "/Volumes/TIZIANO/results/corr/50Hz_180stim_10sec_100iter_0MNN";
+parms=[]
+parms.subjects = [3:10];
+parms.fsNew = 50;
+parms.modelnames = {"gbvs_map", "gbvs_map_KLD", "dg_map", "dg_map_KLD"}%,"alexnet_conv_layer1", "alexnet_conv_layer4", "alexnet_conv_layer7", "alexnet_conv_layer9", "alexnet_conv_layer11", "alexnet_fc_layer2", "alexnet_fc_layer5", "gbvs_map", "gbvs_map_KLD", "pixelwise","OFmag"};
+%parms.modelnames = {"real_alexnet_real_conv_layer1", "real_alexnet_real_conv_layer4", "real_alexnet_real_conv_layer7", "real_alexnet_real_conv_layer9", "real_alexnet_real_conv_layer11", "real_alexnet_real_fc_layer2", "real_alexnet_real_fc_layer5"};
+%parms.modelnames = {"resnet18_layer1","resnet18_layer2","resnet18_layer3","resnet18_layer4", "resnet18_fc"}
+iroi = "tem";
+upper_y_lim = 0.006;
+rois = ["tem", "par", "fro"]
+%mods = ["CE", "gamma", "beta"]
+% mods = ["gbvs_map", "gbvs_map_KLD", "dg_map", "dg_map_KLD"]
+mods = ["ViTPose"] %, "dg_map"]
+imod_tit = ["ViTPose" ] %, "Deep-Gaze II"]
+for iroi = rois
+    counter = 0
+    for imod = mods
+        counter = counter+1;
+        plot_resultss(results_dir, imod,imod_tit(counter), iroi, parms, upper_y_lim)
+    end
+end
+function plot_resultss(results_directory,imod,imod_tit, iroi,parms, upper_y_lim)
+% inputs:
+% - results_directory
+% - imod
+% - parms : .subjects, .fsNew
+% - image_dir (where to store the image) ??
+figure
+freq = round(parms.fsNew);
+for irep=[1 2]
+    count=0;
+    for isub=parms.subjects
+        count=count+1;
+        fn2load = sprintf('%s/sub%03d/dRSA_corr_sub%03d_%s_%s_rep%d_%dHz.mat', results_directory, isub, isub,imod,iroi,irep,freq);
+        disp(fn2load)
+        load(fn2load)
+        storeMod{irep}(count,:)=dRSA;
+        dRSApeak1{irep}(isub)=latencytime(dRSA==max(dRSA));
+    end
+    avgMod{irep}=mean(storeMod{irep});
+    sem_mod{irep}=std(storeMod{irep})/sqrt(size(parms.subjects,2));
+    peakLatency{irep}=latencytime(avgMod{irep}==max(avgMod{irep}));
+end
+[hl1 hp1] = boundedline(latencytime,avgMod{1},sem_mod{1}, 'alpha','transparency',.3);
+set(hl1,'LineWidth',5);
+set(hl1,'color',[0,0.4,.7])
+set(hp1,'FaceColor',[0,0.4,.7])
+hold on
+[hl2, hp2] = boundedline(latencytime,avgMod{2},sem_mod{2},'alpha','transparency',.2);
+set(hl2,'LineWidth',5);
+set(hl2, 'color',[.6,0,.8]);
+set(hp2, 'FaceColor',[.6,0,.8]);
+xlabel("Lag[sec]", 'FontName', 'Arial', 'FontSize', 24, 'FontWeight', 'normal')
+% ylabel( "Spearman's rho", 'FontName', 'Arial', 'FontSize', 24, 'FontWeight', 'normal')
+xticks(-5:5)
+yticks(-.002:.001:1)
+ylim([-.002 upper_y_lim])
+xlim([-5 5])
+xline([0 0]) %,'w')
+if strcmp(iroi, "occ")
+    iroi_complete = "occipital"
+elseif strcmp(iroi, "tem")
+    iroi_complete = "temporal"
+elseif strcmp(iroi, "par")
+    iroi_complete = "parietal"
+elseif strcmp(iroi, "fro")
+    iroi_complete = "frontal"
+elseif strcmp(iroi, "occpar")
+    iroi_complete = "occipito-parietal"
+end % if strcmp(iroi, "occ"):
+title([imod_tit, iroi_complete], 'FontName', 'Arial', 'FontSize', 26, 'FontWeight', 'normal')
+ax = gca;
+ax.YAxis.FontSize = 24;
+ax.XAxis.FontSize = 24;
+% ax.XColor = 'w';
+% ax.YColor = 'w';
+% ax.Color = 'k';  % axes background
+% set(gcf, 'InvertHardcopy', 'off')
+annotation('textbox',[0.15, 0.7, 0.1, 0.1], 'String',{['peak latency:'], ['rep1 = ' num2str(peakLatency{1})],['rep2 = ', num2str(peakLatency{2})]}, 'FontSize',20)
+hold off
+path2save = "/Users/tizianocausin/Downloads"; %/Users/tizianocausin/Library/CloudStorage/OneDrive-SISSA/SIP/figures_SIP/figures_caos_poster";
+fig2save = sprintf("%s/%s_%s_white.svg", path2save, imod, iroi)
+% exportgraphics(gcf, fig2save, 'BackgroundColor', 'white')
+print(gcf, '-dsvg', '-r600', '-painters', fig2save) % '-depsc'
+% saveas(gcf,fig2save)
+end %EOF
+%%
+% "alexnet_fc_layer5"
+%
+results_dir = "/Volumes/TIZIANO/results/corr/50Hz_180stim_10sec_100iter_0MNN";
+parms=[]
+parms.subjects = [3:10];
+parms.fsNew = 50;
+parms.modelnames = {"gbvs_map", "gbvs_map_KLD", "dg_map", "dg_map_KLD"}%,"alexnet_conv_layer1", "alexnet_conv_layer4", "alexnet_conv_layer7", "alexnet_conv_layer9", "alexnet_conv_layer11", "alexnet_fc_layer2", "alexnet_fc_layer5", "gbvs_map", "gbvs_map_KLD", "pixelwise","OFmag"};
+%parms.modelnames = {"real_alexnet_real_conv_layer1", "real_alexnet_real_conv_layer4", "real_alexnet_real_conv_layer7", "real_alexnet_real_conv_layer9", "real_alexnet_real_conv_layer11", "real_alexnet_real_fc_layer2", "real_alexnet_real_fc_layer5"};
+%parms.modelnames = {"resnet18_layer1","resnet18_layer2","resnet18_layer3","resnet18_layer4", "resnet18_fc"}
+iroi = "tem";
+upper_y_lim = 0.006;
+rois = ["occ", "tem", "par", "fro"]
+%mods = ["CE", "gamma", "beta"]
+% mods = ["gbvs_map", "gbvs_map_KLD", "dg_map", "dg_map_KLD"]
+mods = ["pixelwise", "OFmag", "OFdir"]
+subplot_results
+function subplot_results(results_directory, layout, models,rois,parms, upper_y_lim)
+figure
+subplot(layout(1), layout(2), layout(3))
+counter = 1;
+for iroi = rois
+    for imod = models    
+        freq = round(parms.fsNew);
+        for irep=[1 2]
+            count=0;
+            for isub=parms.subjects
+                count=count+1;
+                fn2load = sprintf('%s/sub%03d/dRSA_corr_sub%03d_%s_%s_rep%d_%dHz.mat', results_directory, isub, isub,imod,iroi,irep,freq);
+                disp(fn2load)
+                load(fn2load)
+                storeMod{irep}(count,:)=dRSA;
+                dRSApeak1{irep}(isub)=latencytime(dRSA==max(dRSA));
+            end
+            avgMod{irep}=mean(storeMod{irep});
+            sem_mod{irep}=std(storeMod{irep})/sqrt(size(parms.subjects,2));
+            peakLatency{irep}=latencytime(avgMod{irep}==max(avgMod{irep}));
+        end
+        [hl1 hp1] = boundedline(latencytime,avgMod{1},sem_mod{1}, 'alpha','transparency',.3);
+        set(hl1,'LineWidth',5);
+        set(hl1,'color',[0,0.4,.7])
+        set(hp1,'FaceColor',[0,0.4,.7])
+        hold on
+        [hl2, hp2] = boundedline(latencytime,avgMod{2},sem_mod{2},'alpha','transparency',.2);
+        set(hl2,'LineWidth',5);
+        set(hl2, 'color',[.6,0,.8]);
+        set(hp2, 'FaceColor',[.6,0,.8]);
+        xlabel("Lag[sec]", 'FontName', 'Arial', 'FontSize', 14, 'FontWeight', 'normal')
+        ylabel( "Spearman's rho", 'FontName', 'Arial', 'FontSize', 14, 'FontWeight', 'normal')
+        yticks(-.002:.001:1)
+        ylim([-.002 upper_y_lim])
+        xlim([-5 5])
+        xline([0 0]) %,'w')
+        title([imod, iroi], 'FontName', 'Arial', 'FontSize', 20, 'FontWeight', 'normal')
+        ax = gca;
+        annotation('textbox',[0.15, 0.7, 0.1, 0.1], 'String',['rep1 = ' num2str(peakLatency{1}),'; rep2 = ', num2str(peakLatency{2})])
+        hold off
+        counter = counter +1;
+    end %for iroi = rois
+end %for imod = models
+
+path2save = "/Users/tizianocausin/Library/CloudStorage/OneDrive-SISSA/SIP/figures_SIP/figures_caos_poster";
+fig2save = sprintf("%s/%s_%s_white.eps", path2save, imod, iroi)
+% exportgraphics(gcf, fig2save, 'BackgroundColor', 'white')
+print(gcf, '-depsc', '-r600', '-painters', fig2save)
+% saveas(gcf,fig2save)
+end %EOF
+
+%%
+function pplot_resultss_1_2(results_directory,iroi,parms, upper_y_lim)
+% inputs: 
+% - results_directory
+% - imod
+% - parms : .subjects, .fsNew
+% - image_dir (where to store the image) ??
+
+count=0;
+
+%figure('Color','k')
+freq = round(parms.fsNew);
+for irep = 1 %changed for indexing issues
+    count=0;
+    for isub=parms.subjects
+        count=count+1;
+        %fn2load = sprintf('%s%cdRSA_sub%03d_%s_rep%d_%dHz.mat', results_directory, filesep, isub,imod,2,freq); % the 2 corresponds to rep 2
+        disp(results_directory)
+        fn2load = sprintf('%s/sub%03d/dRSA_corr_sub%03d_%s_rep1_2_%dHz.mat', results_directory, isub, isub, iroi,freq);
+        %fn2load = sprintf('/Users/tizianocausin/Desktop/dataRepository/RepDondersInternship/results_sanity_check/%02d_23freq_simulation_rep12_%d_iterations_50Hz_no_smooth',isub,100);
+        load(fn2load)
+        storeMod{irep}(count,:)=dRSA;
+        dRSApeak1{irep}(isub)=latencytime(dRSA==max(dRSA));
+    end
+avgMod{irep}=mean(storeMod{irep});
+sem_mod{irep}=std(storeMod{irep})/sqrt(size(parms.subjects,2));
+peakLatency{irep}=latencytime(avgMod{irep}==max(avgMod{irep}));
+end
+[hl1 hp1] = boundedline(latencytime,avgMod{1},sem_mod{1}, 'alpha','transparency',.5);
+set(hl1,'LineWidth',5);
+set(hl1,'color',[0,0.4,.7])
+set(hp1,'FaceColor',[0,0.4,.7])
+yticks(0:.01:1)
+xticks(-5:5)
+ylim([0 upper_y_lim])
+xlim([-5 5])
+xline([0 0]) %, 'Color','w')
+%title([imod])
+xlabel("Lag[sec]", 'FontName', 'Arial', 'FontSize', 24, 'FontWeight', 'normal')
+ylabel( "Spearman's rho", 'FontName', 'Arial', 'FontSize', 24, 'FontWeight', 'normal')
+title(["rep 1 vs rep 2", iroi], 'FontName', 'Arial', 'FontSize', 26, 'FontWeight', 'normal')
+annotation('textbox',[0.15, 0.7, 0.1, 0.1], 'String',['peak latency = ' num2str(peakLatency{1})], 'FontSize',20)
+%annotation('textbox',[0.15, 0.8, 0.1, 0.1], 'String',['rep1 = ' num2str(peakLatency{1})])%,'; rep2 = ', num2str(peakLatency{2})])
+ax = gca;
+ax.YAxis.FontSize = 18;
+ax.XAxis.FontSize = 18;
+% ax.XColor = 'w';
+% ax.YColor = 'w';
+% ax.Color = 'k';  % axes background
+%set(gcf, 'InvertHardcopy', 'off')
+hold off
+path2save = "/Users/tizianocausin/Downloads"; %path2save = "/Users/tizianocausin/Library/CloudStorage/OneDrive-SISSA/SIP/figures_SIP/figures_caos_poster";
+fig2save = sprintf("%s/%s_1_2_neural.pdf", path2save, iroi)
+%exportgraphics(gcf, fig2save, 'BackgroundColor', 'current')
+% print(gcf, '-dpdf', '-painters', '-r600', fig2save)
+%print(gcf, '-dsvg', '-r600', '-painters', fig2save)
+end
+
+%%
+results_dir = "/Volumes/TIZIANO/results/corr/500Hz_180stim_10sec_100iter_0MNN";
+pplot_resultss_1_2(results_dir,"fro",parms, .05)

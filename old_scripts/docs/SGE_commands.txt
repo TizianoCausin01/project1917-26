@@ -1,0 +1,5 @@
+# MATLAB PATH
+/state/partition1/MATLAB/R2020a/bin/matlab
+
+# INTERACTIVE SESSION
+qlogin -l h_vmem=<memory> -pe smp <core_number>

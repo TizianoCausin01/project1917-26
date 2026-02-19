@@ -1,0 +1,47 @@
+path2sim = "/Volumes/TIZIANO/results/simulations";
+parms.modelnames = {"resnet18_layer1", "resnet18_layer2", "resnet18_layer3", "resnet18_layer4", "resnet18_fc", "alexnet_conv_layer1", "alexnet_conv_layer4", "alexnet_conv_layer7", "alexnet_conv_layer9", "alexnet_conv_layer11", "alexnet_fc_layer2", "alexnet_fc_layer5"};
+parms.fsNew = 50;
+function plot_simulations(simulations_dir,imod,parms,upper_y_lim)
+% inputs:
+% - results_directory
+% - imod
+% - parms : .subjects, .fsNew
+% - image_dir (where to store the image) ??
+
+figure
+freq = round(parms.fsNew);
+
+for isub=parms.subjects
+    count=count+1;
+    % if dist == 0
+    fn2load = sprintf('%s/simulation_%sHz.mat', simulations_dir,imod,freq);
+
+    disp(fn2load)
+    load(fn2load)
+    storeMod{irep}(count,:)=dRSA;
+    dRSApeak1{irep}(isub)=latencytime(dRSA==max(dRSA));
+end
+avgMod{irep}=mean(storeMod{irep});
+sem_mod = standard_err_simulation;
+[hl1 hp1] = boundedline(latencytime,avgMod{1},sem_mod{1}, 'alpha','transparency',.3);
+set(hl1,'LineWidth',5);
+set(hl1,'color',[0,0.4,.7])
+set(hp1,'FaceColor',[0,0.4,.7])
+yticks(-.002:.001:1)
+ylim([-.002 upper_y_lim])
+xlim([-5 5])
+xline([0 0]) %,'w')
+title([imod])
+ax = gca;
+% ax.XColor = 'w';
+% ax.YColor = 'w';
+% ax.Color = 'k';  % axes background
+% set(gcf, 'InvertHardcopy', 'off')
+annotation('textbox',[0.15, 0.8, 0.1, 0.1], 'String',['rep1 = ' num2str(peakLatency{1}),'; rep2 = ', num2str(peakLatency{2})])
+hold off
+path2save = "/Users/tizianocausin/Library/CloudStorage/OneDrive-SISSA/SIP/figures_SIP/figures_caos_poster";
+fig2save = sprintf("%s/%s_white.png", path2save, imod)
+exportgraphics(gcf, fig2save, 'BackgroundColor', 'white')
+end %EOF
+
+

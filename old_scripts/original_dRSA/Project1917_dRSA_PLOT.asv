@@ -1,0 +1,161 @@
+function Project1917_dRSA_PLOT(parms)
+
+rootdir = '\\cimec-storage5.unitn.it\MORWUR\Projects\INGMAR\Project1917';
+addpath('\\cimec-storage5.unitn.it\MORWUR\Projects\INGMAR\toolboxes');
+addpath(genpath('\\cimec-storage5.unitn.it\MORWUR\Projects\INGMAR\toolboxes\boundedline-toolbox'));
+
+if parms.similarity == 0
+    simstring = 'corr';
+elseif parms.similarity == 1
+    simstring = ['pcr_' num2str(parms.nPCRcomps) 'comps'];
+end
+
+datadir = sprintf('%s%sresults%sdRSA%s%s%s%dHz_%dstim_%dsec_%diter_%dMNN',...
+    rootdir,filesep,filesep,filesep,simstring,filesep,parms.fsNew,parms.nstim,parms.stimlen,parms.iterations,parms.MNN);
+
+tRange=parms.maxlatency*parms.fsNew;
+binVec2 = round([1  tRange+1 tRange*2+1]);
+
+lineColors = brewermap(6,'YlGnBu');% or 'RdPu'
+lineColors([1:3 5],:) = [];% first is too bright
+
+%% load data
+% FOR NOW THESE ARE THE MODELS: pixelwise gaze-invar, pixelwise gaze-dep, OFmag gaze-invar, OFdir gaze-invar
+dRSAsim = zeros(length(parms.subjects),length(parms.repetitions),length(parms.models2plot),tRange*2+1);
+dRSAreal = zeros(length(parms.subjects),length(parms.repetitions),length(parms.models2plot),length(parms.ROI),tRange*2+1);
+
+modcount = 0;
+ires = 1;% for now only 24 Hz OF models
+for imod = 1:length(parms.models2test)
+
+    for igaze = 1:length(parms.gazedep)
+        % 
+        % if parms.gazedep(igaze) == 1 && imod > 1% no gaze-dependent models yet for OFmag and OFdir
+        %     continue
+        % end
+
+        modcount = modcount + 1;
+
+        for isub = 1:length(parms.subjects)
+            for irep = 1:length(parms.repetitions)
+
+                % real data
+                for iroi = 1:length(parms.ROI)
+
+                    fn2load = sprintf('%s%ssub%03d%sdRSA_%s_%s_%dHz_rep%d_gazedep%d_gazerad%d', datadir, filesep, parms.subjects(isub), filesep, parms.ROInames{iroi}, parms.modelnames{imod}, parms.OFtempres(ires), irep, parms.gazedep(igaze), parms.gazeradius);
+
+                    load(fn2load,'dRSA','latencytime');
+                    dRSAreal(isub,irep,modcount,iroi,:) = dRSA;
+
+                end% ROI loop
+
+                % simulated data
+                fn2load = sprintf('%s%ssub%03d%sdRSA_SIM_%s_TEST_%s_%dHz_rep%d_gazedep%d_gazerad%d', datadir, filesep, parms.subjects(isub), filesep, parms.modelnames{imod}, parms.modelnames{imod}, parms.OFtempres(ires), irep, parms.gazedep(igaze), parms.gazeradius);
+
+                load(fn2load,'dRSA','latencytime');
+                dRSAsim(isub,irep,modcount,:) = dRSA;
+
+            end% repetition loop
+        end% subject loop
+    end% gaze loop
+end% model loop
+
+% dRSAreal(dRSAreal == 0) = nan;
+
+% sem
+dRSAsem = squeeze(std(squeeze(dRSAreal),'omitnan'))./sqrt(size(dRSAreal,1));
+
+close(figure(1));
+
+figure(1);
+set(gcf,'color','w');
+set(gcf, 'Units', 'centimeters');
+set(gcf, 'Position',  [1 1 10 10]);
+
+ylimit = repmat(0.006,1,length(parms.models2plot));
+for itest = 1:length(parms.models2plot)% models
+
+    % all sensors
+    subplot(2,length(parms.models2plot),itest);
+
+    hold on
+    h = [];
+    for irep = 1:length(parms.ROI)
+        SEM2plot = repmat(squeeze(dRSAsem(irep,parms.models2plot(itest),1,:)),[1 2]);
+
+        boundedline(latencytime,squeeze(mean(dRSAreal(:,irep,parms.models2plot(itest),1,:),'omitnan')), SEM2plot , 'alpha','cmap', lineColors(irep,:));
+        h(irep) = plot(latencytime,squeeze(mean(dRSAreal(:,irep,parms.models2plot(itest),1,:),'omitnan')),'color',lineColors(irep,:),'lineWidth',1.5);
+    end
+    plot([latencytime(1) latencytime(end)],[0 0],'--k');
+    plot([0 0],[-1 1],'--k');
+    set(gca,'xlim',[latencytime(1) latencytime(end)]);
+    set(gca,'ylim',[-ylimit(itest)/3 ylimit(itest)]);
+    set(gca,'xtick',latencytime(binVec2));
+    set(gca,'Fontsize',parms.fs,'FontName','Helvetica');
+    xlabel('latency [msec]');
+    hold off
+
+    if itest == 1
+        ylabel('dRSA [Rho]','Fontsize',parms.fs,'FontName','Helvetica');
+        legend(h,'first viewing','second viewing');
+    end
+
+    % title(parms.modellabels{parms.models2plot(itest)},'Fontsize',parms.fs,'FontName','Helvetica','FontWeight','normal');
+
+    % % occipito-parietal
+    % subplot(3,length(parms.models2plot),itest+length(parms.models2plot));
+    % 
+    % hold on
+    % h = [];
+    % for irep = 1:length(parms.ROI)
+    %     SEM2plot = repmat(squeeze(dRSAsem(irep,parms.models2plot(itest),2,:)),[1 2]);
+    % 
+    %     boundedline(latencytime,squeeze(mean(dRSAreal(:,irep,parms.models2plot(itest),2,:),'omitnan')), SEM2plot , 'alpha','cmap', lineColors(irep,:));
+    %     h(irep) = plot(latencytime,squeeze(mean(dRSAreal(:,irep,parms.models2plot(itest),2,:),'omitnan')),'color',lineColors(irep,:),'lineWidth',1.5);
+    % end
+    % plot([latencytime(1) latencytime(end)],[0 0],'--k');
+    % plot([0 0],[-1 1],'--k');
+    % set(gca,'xlim',[latencytime(1) latencytime(end)]);
+    % set(gca,'ylim',[-ylimit(itest)/3 ylimit(itest)]);
+    % set(gca,'xtick',latencytime(binVec2));
+    % set(gca,'Fontsize',parms.fs,'FontName','Helvetica');
+    % hold off
+    % 
+    % if itest == 1
+    %     ylabel('dRSA [Rho]','Fontsize',parms.fs,'FontName','Helvetica');
+    %     legend(h,'first viewing','second viewing');
+    % end
+    % 
+    % title([parms.modellabels{parms.models2plot(itest)}  ' - occpar'],'Fontsize',parms.fs,'FontName','Helvetica','FontWeight','normal');
+
+    % random permutations - avg + 95% CI - all sensors - free view
+    subplot(2,length(parms.models2plot),itest+length(parms.models2plot));
+
+    hold on
+    plot(latencytime,squeeze(mean(mean(dRSAsim(:,:,parms.models2plot(itest),:),'omitnan'),'omitnan')),'color',[0 0 0],'lineWidth',1.5);
+    plot([latencytime(1) latencytime(end)],[0 0],'--k');
+    plot([0 0],[-1 1],'--k');
+    set(gca,'xlim',[latencytime(1) latencytime(end)]);
+    set(gca,'ylim',[-0.1 1]);
+    set(gca,'xtick',latencytime(binVec2));
+    set(gca,'Fontsize',parms.fs,'FontName','Helvetica');
+    xlabel('latency [msec]');
+    hold off
+
+    if itest == 1
+        ylabel('dRSA [Rho]','Fontsize',parms.fs,'FontName','Helvetica');
+        legend(h,'first viewing','second viewing');
+    end
+
+    % title([parms.modellabels{parms.models2plot(itest)}  ' - sim'],'Fontsize',parms.fs,'FontName','Helvetica','FontWeight','normal');
+
+end
+
+
+
+% cd('G:\My Drive\Active projects\Project1917\figures');
+% print -depsc -r600 ActionPrediction_Figure2a_ROIlineplots.eps
+
+% set(gcf,'renderer','Painters')
+% print -depsc -tiff -r600 -painters Unpredict_ROIlagplots_normal.eps
+
