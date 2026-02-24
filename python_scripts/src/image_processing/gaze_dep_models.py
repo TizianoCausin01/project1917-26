@@ -145,6 +145,7 @@ def sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func
         return None
     # end if os.path.exists(save_name):
     xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, fs, xy=True)
+    xy_gaze.resample(fps)
     frames_n -= round(secs_to_skip*fps)
     offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
     canvas = None
@@ -156,7 +157,18 @@ def sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func
     with h5py.File(save_name, "w") as f:
         f.create_dataset("vecrep", data=features)
     # end with h5py.File(save_name, "w") as f:
-    print_wise(f"model {model_name} saved at {save_name}")
+    print_wise(f"model {model_name} saved at {save_name}", rank=rank)
+# EOF
+
+"""
+wrapper_run_sequential_gaze_dep_mod
+Just a wrapper of the above function to loop through the runs
+"""
+def wrapper_run_sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func, save_func, sq_side: int, model_name: str, fs, *args, screen_res=(1080, 1920), secs_to_skip=5, **kwargs): 
+    print_wise(f"Start running {model_name} for sub {sub_num}", rank=rank)
+    for irun in range(1, 7):
+        sequential_gaze_dep_mod(paths, rank, sub_num, func, save_func, sq_side, model_name, irun, fs, *(50,), screen_res=(1080, 1920), secs_to_skip=5, )
+    # end for irun in range(1, 7):
 # EOF
 
 
@@ -175,7 +187,7 @@ OUTPUT:
     - None
     (Appends flattened feature vector to features in-place)
 '''
-def pixelwise_lum(frame_patch, features, sq_side_resized):
+def pixelwise_luminance(frame_patch, features, sq_side_resized):
     resized = cv2.resize(frame_patch, (sq_side_resized, sq_side_resized), interpolation=cv2.INTER_LINEAR)
     resized.ravel(order='F')
     features.append(resized)
@@ -201,7 +213,7 @@ INPUT:
 OUTPUT:
     - save_name: str -> full path to output .h5 file
 '''
-def save_pixelwise_lum(paths, model_name, sub_num, run, fs, sq_side, *args, **kwargs):
+def save_pixelwise_luminance(paths, model_name, sub_num, run, fs, sq_side, *args, **kwargs):
     save_name = f"{paths['data_dir']}/models/sub{sub_num:03d}_run{run:02d}_{model_name}_gazedep_{sq_side}x{sq_side}rect_to_{args[0]}x{args[0]}_{round(fs)}Hz.h5"
     return save_name
 # EOF
