@@ -147,6 +147,10 @@ def sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func
     xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, fs, xy=True)
     xy_gaze.resample(fps)
     frames_n -= round(secs_to_skip*fps)
+    if movie_part == 3: # to be on the safe side, because when downsampled, the number of gaze-datapoints exceeds the number of frames
+        frames_n -= 3
+    # end if movie_part == 3:
+    print(frames_n)
     offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
     canvas = None
     features = []
@@ -167,7 +171,7 @@ Just a wrapper of the above function to loop through the runs
 def wrapper_run_sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func, save_func, sq_side: int, model_name: str, fs, *args, screen_res=(1080, 1920), secs_to_skip=5, **kwargs): 
     print_wise(f"Start running {model_name} for sub {sub_num}", rank=rank)
     for irun in range(1, 7):
-        sequential_gaze_dep_mod(paths, rank, sub_num, func, save_func, sq_side, model_name, irun, fs, *(50,), screen_res=(1080, 1920), secs_to_skip=5, )
+        sequential_gaze_dep_mod(paths, rank, sub_num, func, save_func, sq_side, model_name, irun, fs, *args, screen_res=(1080, 1920), secs_to_skip=5, )
     # end for irun in range(1, 7):
 # EOF
 
