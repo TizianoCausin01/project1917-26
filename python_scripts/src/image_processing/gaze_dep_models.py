@@ -50,6 +50,14 @@ def extract_square_patch(canvas: np.ndarray[3], cx: int, cy: int, side: int, fil
     # initialize patch
     patch = np.ones((side, side, C), dtype=canvas.dtype) * fill_value
     # canvas boundaries
+    if np.any(np.isnan([cx, cy])):
+        raise ValueError(f"Gaze coords are NaNs")
+    # end if np.any(np.isnan([cx, cy])):
+    if cx<0:
+        cx = 0
+    if cy < 0:
+        cy = 0
+    # end if cy < 0
     x_start_canvas = max(cx - half_size, 0)
     x_end_canvas   = min(cx + half_size, W)
     y_start_canvas = max(cy - half_size, 0)
@@ -59,7 +67,6 @@ def extract_square_patch(canvas: np.ndarray[3], cx: int, cy: int, side: int, fil
     x_end_patch   = x_start_patch + (x_end_canvas - x_start_canvas)
     y_start_patch = max(0, half_size - cy)
     y_end_patch   = y_start_patch + (y_end_canvas - y_start_canvas)
-    # copy region
     patch[y_start_patch:y_end_patch, x_start_patch:x_end_patch, :] = canvas[y_start_canvas:y_end_canvas, x_start_canvas:x_end_canvas, :]
     return patch
 # EOF
@@ -91,7 +98,7 @@ OUTPUT:
 SIDE EFFECTS:
     - features: list -> gets in-place modification
 '''
-def sequential_gaze_dep_loop(cap: cv2.VideoCapture, xy_gaze: TimeSeries, frame_idx: int, sq_side: int, movie_dims: Tuple[int, int], offset_dims: Tuple[int, int], canvas: np.ndarray, features: list, func, rank: int, *args, **kwargs):
+def sequential_gaze_dep_loop(cap: cv2.VideoCapture, xy_gaze: TimeSeries, frame_idx: int, sq_side: int, movie_dims: Tuple[int, int], offset_dims: Tuple[int, int], canvas: np.ndarray, features: list, func, rank: int, sub, run, *args, **kwargs):
     xy = xy_gaze[frame_idx]
     ret, frame = cap.read()
     if not ret:
@@ -101,7 +108,7 @@ def sequential_gaze_dep_loop(cap: cv2.VideoCapture, xy_gaze: TimeSeries, frame_i
     frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
     func(frame_patch, features, *args, **kwargs)
     if frame_idx %1000 == 0: # to print out
-        print_wise(f"processed first {frame_idx}th frames", rank=rank)
+        print_wise(f"sub {sub} run {run}, processed first {frame_idx}th frames", rank=rank)
     # end if frame_idx %1000 == 0:
     return canvas
 # EOF
@@ -146,16 +153,16 @@ def sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func
     # end if os.path.exists(save_name):
     xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, fs, xy=True)
     xy_gaze.resample(fps)
-    frames_n -= round(secs_to_skip*fps)
-    if movie_part == 3: # to be on the safe side, because when downsampled, the number of gaze-datapoints exceeds the number of frames
-        frames_n -= 3
-    # end if movie_part == 3:
-    print(frames_n)
+    frames_n -= round(secs_to_skip*fps) +2 # to be on the safe side, because when downsampled, the number of gaze-datapoints exceeds the number of frames
+    if frames_n > len(xy_gaze):
+        raise IndexError(f"The number of frames ({frames_n}) is larger than the number of gaze datapoints ({len(xy_gaze)}) in sub {sub_num} run {run}")
+    # end if frames_n > len(xy_gaze):
+
     offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
     canvas = None
     features = []
     for frame_idx in range(frames_n):
-        canvas = sequential_gaze_dep_loop(cap, xy_gaze, frame_idx, sq_side, (h,w), offset_dims, canvas, features, func, rank, *args, **kwargs)
+        canvas = sequential_gaze_dep_loop(cap, xy_gaze, frame_idx, sq_side, (h,w), offset_dims, canvas, features, func, rank, sub_num, run, *args, **kwargs)
     # end for frame_idx in range(frames_n):
     features = np.stack(features, axis=1)
     with h5py.File(save_name, "w") as f:
