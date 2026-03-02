@@ -1,13 +1,8 @@
-tiziano_local:
-  paths:
-    src_path: "/Users/tizianocausin/Desktop/project1917-26/python_scripts/src"
-    data_dir: "/Volumes/LivingstoneLab"
-
 
 tiziano_mac_mini:
   paths:
     src_path: "/Users/tizianocausin/Desktop/project1917-26/python_scripts/src"
-    data_dir: "/Users/tizianocausin/1917_local"
+    data_path: "/Users/tizianocausin/1917_local"
     useful_stuff_path: "/Users/tizianocausin/Desktop/useful_stuff/python_scripts/src"
 
 
