@@ -22,7 +22,7 @@ OUTPUT:
     - timestamps: np.ndarray -> corresponding time points
 '''
 def load_eyetracking_data(paths: dict[str: str], sub_num: int, run: int, fs: float, xy=True):
-    eyetracking_dir = f"{paths['data_dir']}/data/eyetracker_data"
+    eyetracking_dir = f"{paths['data_path']}/data/eyetracker_data"
     eyetracking_file = f"{eyetracking_dir}/gaze_sub{sub_num:03d}_run{run:02d}_{fs}Hz.mat"
     with h5py.File(eyetracking_file, "r") as f:
         gaze = f['gaze'][:].T
@@ -52,7 +52,7 @@ OUTPUT:
     - labels: list[str] -> sensor labels
 '''
 def load_meg_data(paths: dict[str: str], sub_num: int, run: int, sensors_group: str, fs: float):
-    file_path = f"{paths['data_dir']}/data/sub{sub_num:03d}/preprocessed/sub{sub_num:03d}_{sensors_group}_{fs}Hz_MNN0_badmuscle0_badlowfreq1_badsegint1_badcomp2.mat"    
+    file_path = f"{paths['data_path']}/data/sub{sub_num:03d}/preprocessed/sub{sub_num:03d}_{sensors_group}_{fs}Hz_MNN0_badmuscle0_badlowfreq1_badsegint1_badcomp2.mat"    
     data = loadmat(file_path)
     labels = [str(x[0]) for x in data['label'].flatten()]
     data_neural = data['data_final'][run-1][0]
