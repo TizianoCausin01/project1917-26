@@ -361,3 +361,217 @@ def eyeOF_wrapper(paths: dict[str:str], rank: int, sub_num: int, fs: float, sq_s
         # end if all([os.exists(p) for p in OF_savenames]):
     # end for irun in range(1, 7):
 # EOF
+
+
+
+"""
+append_OF_list
+Append current optical flow features to cumulative lists (per feature type).
+
+INPUT:
+    - tot_features_list: list[list] -> list of lists storing accumulated features (one per feature type)
+    - curr_features: list[np.ndarray] -> current frame features (e.g., flow, magnitude, direction)
+
+OUTPUT:
+    - None (modifies tot_features_list in place)
+
+NOTES:
+    - Each feature is flattened in Fortran order before appending
+    - Assumes consistent ordering between tot_features_list and curr_features
+"""
+def append_OF_list(tot_features_list, curr_features):
+    for tot, curr in zip(tot_features_list, curr_features):
+        # TODO decrease resolution
+        tot.append(curr.ravel(order='F'))
+    # end for idx, OF_type in enumerate(tot_features_list):
+# EOF
+
+"""
+OF_0th_frame_pad
+Duplicate the first frame of each feature list at the beginning.
+
+INPUT:
+    - tot_features_list: list[list] -> list of feature lists (one per feature type)
+
+OUTPUT:
+    - None (modifies lists in place)
+
+NOTES:
+    - Ensures alignment with original frame indexing (e.g., flow defined from t-1 → t)
+"""
+def OF_0th_frame_pad(tot_features_list: list[list]):
+    for OF_type in tot_features_list:
+        OF_type.insert(0, OF_type[0])
+    # end for OF_type in tot_features_list:
+# EOF
+
+"""
+stack_OF_list
+Stack lists of optical flow features into arrays.
+
+INPUT:
+    - tot_features_list: list[list[np.ndarray]] -> list of feature lists (one per feature type)
+
+OUTPUT:
+    - tot_features_list: list[np.ndarray] -> each element has shape (features, n_frames)
+
+NOTES:
+    - Stacking is performed along axis=1 (time dimension)
+"""
+def stack_OF_list(tot_features_list):
+    tot_features_list = [np.stack(f, axis=1) for f in tot_features_list]
+    return tot_features_list
+# EOF
+
+
+"""
+OF_inside
+Compute gaze-centered optical flow features from a video stream.
+
+INPUT:
+    - frames_n: int -> number of frames to process
+    - xy_gaze: np.ndarray -> (n_frames, 2), gaze coordinates (x, y) per frame
+    - cap: cv2.VideoCapture -> video capture object
+    - video_dims: tuple[int, int] -> original video dimensions (H, W)
+    - offset_dims: tuple[int, int] -> padding offsets to center video on screen
+    - sq_side: int -> side length of extracted square patch
+    - sq_size_resized: int -> resized patch side length
+    - rank: int -> process rank (for logging)
+
+OUTPUT:
+    - features_list: list[list[np.ndarray]] -> lists of features (one per type: flow, magnitude, direction)
+
+NOTES:
+    - Optical flow is computed between consecutive grayscale frames (Farneback method)
+    - Flow is cropped around gaze location and resized to fixed resolution
+    - Outputs:
+        * OF_patch: (H, W, 2) → flow vectors
+        * OFmag: (H, W) → magnitude
+        * OFdir: (H, W, 2) → normalized direction (NaNs set to 0)
+    - Features are flattened (Fortran order) and appended via append_OF_list
+"""
+def OF_inside(frames_n, xy_gaze, cap, video_dims, offset_dims, sq_side, sq_size_resized, rank):
+    features_list = [[], [], []]
+    ret, frame = cap.read()
+    old_canvas = pad_frame(frame, video_dims, offset_dims)
+    old_canvas = cv2.cvtColor(old_canvas, cv2.COLOR_BGR2GRAY)
+    flow = None
+    for frame_idx in range(1, frames_n):    
+        xy = xy_gaze[frame_idx]
+        ret, frame = cap.read()
+        new_canvas = pad_frame(frame, video_dims, offset_dims)
+        new_canvas = cv2.cvtColor(new_canvas, cv2.COLOR_BGR2GRAY)
+        flow = cv2.calcOpticalFlowFarneback(
+            old_canvas, new_canvas,
+            flow,       # initial flow
+            pyr_scale=0.5,
+            levels=3,
+            winsize=15, # the bigger win_size, the blurrier the vector field (smooths over more pixels)
+            iterations=3,
+            poly_n=7, # the bigger poly_n, the blurrier the vector field
+            poly_sigma=1.5, # adjusted as per documentation
+            flags=0
+        )
+        OF_patch = extract_square_patch(flow, round(xy[0]), round(xy[1]), sq_side, fill_value=0)
+        OF_patch = cv2.resize(OF_patch, (sq_size_resized, sq_size_resized), interpolation=cv2.INTER_LINEAR)
+        OFmag = np.linalg.norm(OF_patch, axis=-1) # (H, W, xy_components) -> (H, W)
+        OFdir = OF_patch / OFmag[...,np.newaxis]
+        OFdir[np.isnan(OFdir)] = 0
+        append_OF_list(features_list, [OF_patch, OFmag, OFdir])
+        # magnitude, normalization, NaNs == 0
+        if frame_idx % 1000 ==0:
+            print_wise(f"Processed frame {frame_idx}", rank=rank)
+        # end if frame_idx % 1000 ==0:
+    # end for frame_idx in range(1, frames_n):
+    return features_list
+# EOF
+
+"""
+sequential_OF_gaze_dep
+Compute gaze-dependent optical flow features sequentially from video frames.
+
+INPUT:
+    - paths: dict[str, str] -> dictionary containing base paths
+    - rank: int -> process rank (for logging)
+    - sub_num: int -> subject number
+    - model_names: list[str] -> names of output models (e.g., ['OF', 'OFmag', 'OFdir'])
+    - run: int -> run index
+    - eye_fs: float -> eye-tracking sampling frequency
+    - mod_fs: float -> model sampling frequency
+    - sq_side: int -> side length of extracted gaze-centered patch
+    - sq_size_resized: int -> resized patch side length
+    - screen_res: tuple[int, int] -> screen resolution (H, W)
+    - secs_to_skip: int -> seconds to skip at start of video
+
+OUTPUT:
+    - features_list: list[np.ndarray] -> list of feature arrays (one per model), shape (features, n_frames)
+
+NOTES:
+    - Video frames are aligned with gaze data (resampled to video FPS)
+    - Optical flow is computed on gaze-centered patches
+    - First frame is duplicated to maintain temporal alignment
+    - Returns None if all output files already exist
+"""
+def sequential_OF_gaze_dep(paths: dict[str: str], rank: int, sub_num: int, model_names: str, run: int, eye_fs: float, mod_fs: float, sq_side: int, sq_size_resized: int, screen_res=(1080, 1920), secs_to_skip=5,): 
+    movie_part = run2part(run)
+    movie_fn = f"{paths['data_path']}/stimuli/Project1917_movie_part{movie_part}_24Hz.mp4"
+    cap = cv2.VideoCapture(movie_fn)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps)-1)
+    h, w, frames_n = get_video_dimensions(cap)
+    OF_savenames = [save_OF(paths, mn, sub_num, run, mod_fs, sq_side, *(sq_size_resized,)) for mn in model_names]
+    if all([os.path.exists(p) for p in OF_savenames]):
+        print_wise(f"all models already exists at {OF_savenames[0]}", rank=rank)
+        return None
+    # end if all([os.path.exists(p) for p in OF_savenames]):
+    xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, eye_fs, xy=True)
+    xy_gaze.resample(fps)
+    frames_n -= round(secs_to_skip*fps) +2 # to be on the safe side, because when downsampled, the number of gaze-datapoints exceeds the number of frames
+    if frames_n > len(xy_gaze):
+        raise IndexError(f"The number of frames ({frames_n}) is larger than the number of gaze datapoints ({len(xy_gaze)}) in sub {sub_num} run {run}")
+    # end if frames_n > len(xy_gaze):
+    offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
+    features_list = OF_inside(frames_n, xy_gaze, cap, (h,w), offset_dims, sq_side, sq_size_resized, rank)
+    OF_0th_frame_pad(features_list)
+    features_list = stack_OF_list(features_list)
+    return features_list
+# EOF
+
+"""
+OF_wrapper
+Wrapper to compute and save optical flow–based features for all runs of a subject.
+
+INPUT:
+    - paths: dict[str, str] -> dictionary containing base paths
+    - rank: int -> process rank (for logging)
+    - sub_num: int -> subject number
+    - eye_fs: float -> eye-tracking sampling frequency
+    - mod_fs: float -> model sampling frequency
+    - sq_side: int -> side length of extracted gaze-centered patch
+    - sq_size_resized: int -> resized patch side length
+
+OUTPUT:
+    - None (saves .h5 files to disk)
+
+NOTES:
+    - Computes three models: OF, OFmag, OFdir
+    - Skips runs where all output files already exist
+    - Saves each feature under dataset name 'vecrep'
+"""
+def OF_wrapper(paths: dict[str:str], rank: int, sub_num: int, eye_fs: float, mod_fs: float, sq_side: int, sq_size_resized: int,):
+    model_names=['OF', 'OFmag', 'OFdir']
+    for irun in range(1, 7):
+        OF_savenames = [save_OF(paths, mn, sub_num, irun, mod_fs, sq_side, *(sq_size_resized,)) for mn in model_names]
+        if all([os.path.exists(p) for p in OF_savenames]):
+            print_wise(f"all models already exists at {OF_savenames[0]}", rank=rank)
+        else:
+            features_list = sequential_OF_gaze_dep(paths, rank, sub_num,  model_names, irun, eye_fs, mod_fs, sq_side, sq_size_resized)
+            for sn, feats in zip(OF_savenames, features_list):
+                with h5py.File(sn, "w") as f:
+                    f.create_dataset("vecrep", data=feats)
+                # end with h5py.File(save_name, "w") as f:
+            # end for sn, f in zip(OF_savenames, features_list):
+            print_wise(f"model saved at {OF_savenames[0]}", rank=rank)
+        # end if all([os.exists(p) for p in OF_savenames]):
+    # end for irun in range(1, 7):
+# EOF
