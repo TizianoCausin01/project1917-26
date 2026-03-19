@@ -475,8 +475,15 @@ def OF_inside(frames_n, xy_gaze, cap, video_dims, offset_dims, sq_side, sq_size_
         OF_patch = extract_square_patch(flow, round(xy[0]), round(xy[1]), sq_side, fill_value=0)
         OF_patch = cv2.resize(OF_patch, (sq_size_resized, sq_size_resized), interpolation=cv2.INTER_LINEAR)
         OFmag = np.linalg.norm(OF_patch, axis=-1) # (H, W, xy_components) -> (H, W)
-        OFdir = OF_patch / OFmag[...,np.newaxis]
-        OFdir[np.isnan(OFdir)] = 0
+        OFdir = np.divide(
+            OF_patch,
+            OFmag[..., np.newaxis],
+            out=np.zeros_like(OF_patch),
+            where=OFmag[..., np.newaxis] != 0
+        )
+        if not np.isfinite(OFdir).all():
+            raise ValueError("Infinite or nan values encountered in the computation of optical flow direction")
+        # end if not np.isfinite(OFdir).all():
         append_OF_list(features_list, [OF_patch, OFmag, OFdir])
         # magnitude, normalization, NaNs == 0
         if frame_idx % 1000 ==0:
