@@ -144,7 +144,7 @@ def sequential_gaze_dep_mod(paths: dict[str: str], rank: int, sub_num: int, func
     movie_fn = f"{paths['data_path']}/stimuli/Project1917_movie_part{movie_part}_24Hz.mp4"
     cap = cv2.VideoCapture(movie_fn)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps)-1)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps))
     h, w, frames_n = get_video_dimensions(cap)
     save_name = save_func(paths, model_name, sub_num, run, fps, sq_side, *args, **kwargs)
     if os.path.exists(save_name):
@@ -524,7 +524,7 @@ def sequential_OF_gaze_dep(paths: dict[str: str], rank: int, sub_num: int, model
     movie_fn = f"{paths['data_path']}/stimuli/Project1917_movie_part{movie_part}_24Hz.mp4"
     cap = cv2.VideoCapture(movie_fn)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps)-1)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps))
     h, w, frames_n = get_video_dimensions(cap)
     OF_savenames = [save_OF(paths, mn, sub_num, run, mod_fs, sq_side, *(sq_size_resized,)) for mn in model_names]
     if all([os.path.exists(p) for p in OF_savenames]):
