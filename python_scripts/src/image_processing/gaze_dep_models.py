@@ -1,12 +1,17 @@
-import sys, os
+import yaml, sys, os
 import numpy as np
 import h5py
 import cv2
+ENV = os.getenv("MY_ENV", "dev")
+with open("../../config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+paths = config[ENV]["paths"]
+sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
-from general_utils import print_wise, TimeSeries
+from useful_stuff.general_utils import print_wise, TimeSeries
+from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features
 from project_specific_utils.dataloader import load_eyetracking_data
 from project_specific_utils.utils import run2part
-from image_processing.utils import get_video_dimensions
 """
 pad_frame
 Pad a movie frame into a larger screen canvas at a given offset.
@@ -582,3 +587,111 @@ def OF_wrapper(paths: dict[str:str], rank: int, sub_num: int, eye_fs: float, mod
         # end if all([os.exists(p) for p in OF_savenames]):
     # end for irun in range(1, 7):
 # EOF
+
+
+"""
+extract_center_patches
+Extract three square patches per frame, centered vertically and spaced horizontally.
+
+INPUT:
+    - v: np.ndarray -> (n_frames, H, W, C)
+    - sq_size: int -> size of square patches
+
+OUTPUT:
+    - patches: list[np.ndarray] -> list of patches of shape (sq_size, sq_size, C)
+"""
+def extract_center_patches(v, sq_size):
+    patches = []
+    h, w, c = v[0].shape
+    d = (w - 3 * sq_size) // 4
+    cy = h // 2
+    cx1 = 2*d + sq_size//2
+    cx2 = cx1 + d + sq_size
+    cx3 = cx2 + d + sq_size
+    cxs = [cx1, cx2, cx3]
+    for frame in v:
+        for cx in cxs:
+            patches.append(extract_square_patch(frame, cx, cy, sq_size))
+    return patches
+# EOF 
+
+"""
+sample_random_patches
+Randomly sample a batch of frames (without replacement), convert to torch tensor, and remove them from the source list.
+
+
+INPUT:
+    - tot_frames: list[np.ndarray] -> list of frames (H, W, C)
+    - batch_size: int -> number of frames to sample
+
+OUTPUT:
+    - chunk: torch.Tensor -> (batch_size, H, W, C)
+    
+SIDE EFFECT:
+    - removes sampled frames from tot_frames
+"""
+def sample_random_patches(tot_frames, batch_size):
+    frames_indices = np.random.choice(len(tot_frames), size=batch_size, replace=False) 
+    chunk = [torch.from_numpy(tot_frames[i]) for i in frames_indices]            
+    chunk = torch.stack(chunk) # (N,H,W,...)
+    print(chunk.shape)
+    for i in sorted(frames_indices, reverse=True):
+        del tot_frames[i] # deletes frames that are being used
+    return chunk
+# EOF
+
+
+"""
+capture_1917_movie_runs
+Load all video files from the stimuli directory as OpenCV VideoCapture objects.
+
+INPUT:
+    - paths: dict -> must contain key 'data_path'
+
+OUTPUT:
+    - caps_list: list[cv2.VideoCapture] -> list of opened video capture objects
+"""
+def capture_1917_movie_runs(paths):
+    stim_dir = f"{paths['data_path']}/stimuli"
+    filenames = os.listdir(stim_dir)
+    caps_list = []
+    for fn in filenames:
+        fn_path = f"{stim_dir}/{fn}"
+        cap = cv2.VideoCapture(fn_path)
+        if not cap.isOpened():
+            raise FileNotFoundError(f"Cannot open video file: {fn_path}")
+        # end if not cap.isOpened():
+        caps_list.append(cap)
+    # end for fn in filenames:
+    return caps_list
+# EOF
+
+import torch
+
+"""
+extract_features_1917_movie
+Preprocess a batch and extract features from a specified model layer.
+
+INPUT:
+    - batch: torch.Tensor -> (B, H, W, C)
+    - feature_extractor: callable -> returns dict of layer activations
+    - layer_name: str -> key for desired layer
+    - input_size: int -> input resolution for preprocessing
+    - pooling: str -> 'all' (flatten) or pooling method
+
+OUTPUT:
+    - features: np.ndarray -> (B, n_features)
+"""
+def extract_features_1917_movie(batch, feature_extractor, layer_name, input_size, pooling="all", device='cpu'):
+    batch = preprocess_batch(batch, input_size, device=device)
+    with torch.no_grad():
+        features = feature_extractor(batch)[layer_name]
+    features = features.cpu().detach().numpy()
+    if pooling == 'all':
+        features = features.reshape(features.shape[0], -1, order='F')
+    else:
+        features = pool_features(features, pooling)
+    # end if pooling == 'all':
+    return features
+# EOF
+
