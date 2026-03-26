@@ -12,7 +12,7 @@ paths = config[ENV]["paths"]
 sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
 from useful_stuff.general_utils import print_wise, TimeSeries, get_device
-from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features, read_video
+from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features, read_video, get_layer_output_shape
 from project_specific_utils.dataloader import load_eyetracking_data
 from project_specific_utils.utils import run2part
 """
@@ -699,7 +699,7 @@ def extract_features_1917_movie(batch, feature_extractor, layer_name, input_size
 
 
 """
-save_ipca
+save_ipca_patch
 Generate a filename for saving an Incremental PCA model based on movie patches.
 
 INPUT:
@@ -713,9 +713,9 @@ INPUT:
 OUTPUT:
     - savename: str -> full path to save the IPCA model
 """
-def save_ipca(paths, model_name, layer_name, n_components, sq_size, pooling):
+def save_ipca_patch(paths, model_name, layer_name, n_components, sq_size, pooling):
     models_path = f"{paths['data_path']}/models"
-    savename = f"{models_path}/{model_name}_{layer_name}_{n_components}_components_{sq_size}x{sq_size}_{pooling}pool.pkl"
+    savename = f"{models_path}/{model_name}_{layer_name}_{n_components}components_{sq_size}x{sq_size}patch_{pooling}pool.pkl"
     return savename
 
 """
@@ -750,7 +750,7 @@ PROCESS:
 """
 def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, input_size, pooling, secs_to_skip=5):
     device = get_device()
-    PCs_savename = save_ipca(paths, model_name, layer_name, n_components, sq_size, pooling)
+    PCs_savename = save_ipca_patch(paths, model_name, layer_name, n_components, sq_size, pooling)
     if os.path.exists(PCs_savename):
         print_wise(f"PCs already exist at {PCs_savename}", rank=rank)
         return None
@@ -758,7 +758,8 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
     feature_extractor = create_feature_extractor(
         model, return_nodes=[layer_name]
     ).to(device) # or something else for other models (e.g. dino)
-    ipca_obj = IncrementalPCA(n_components=n_components, batch_size=batch_size)
+    layer_dim = get_layer_output_shape(feature_extractor, layer_name, imsize=input_size)
+    ipca_obj = IncrementalPCA(n_components=min(n_components, np.prod(layer_dim)), batch_size=batch_size)
     caps_list = capture_1917_movie_runs(paths)
     n_movies = len(caps_list)
     fps = caps_list[0].get(cv2.CAP_PROP_FPS)
@@ -783,7 +784,7 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
         # end if np.all(mask):
     # end while True:
     tot_frames = None
-    for idx, start_f in enumerate(batch_starts): # sample from the whole movies
+    for idx, start_f in enumerate(batch_starts[:5]): # sample from the whole movies
         start_s = start_f/fps
         for cap, tot_f in zip(caps_list, frames_per_run): # for each of the movies in the caps_list, it reads the frames at that point
             if start_f < tot_f: # enter here only if the current start is in the movie
