@@ -1,6 +1,9 @@
 import yaml, sys, os
 import numpy as np
 import h5py
+import joblib
+from sklearn.decomposition import IncrementalPCA
+from torchvision.models.feature_extraction import create_feature_extractor
 import cv2
 ENV = os.getenv("MY_ENV", "dev")
 with open("../../config.yaml", "r") as f:
@@ -8,8 +11,8 @@ with open("../../config.yaml", "r") as f:
 paths = config[ENV]["paths"]
 sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
-from useful_stuff.general_utils import print_wise, TimeSeries
-from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features
+from useful_stuff.general_utils import print_wise, TimeSeries, get_device
+from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features, read_video
 from project_specific_utils.dataloader import load_eyetracking_data
 from project_specific_utils.utils import run2part
 """
@@ -634,7 +637,6 @@ def sample_random_patches(tot_frames, batch_size):
     frames_indices = np.random.choice(len(tot_frames), size=batch_size, replace=False) 
     chunk = [torch.from_numpy(tot_frames[i]) for i in frames_indices]            
     chunk = torch.stack(chunk) # (N,H,W,...)
-    print(chunk.shape)
     for i in sorted(frames_indices, reverse=True):
         del tot_frames[i] # deletes frames that are being used
     return chunk
@@ -695,3 +697,118 @@ def extract_features_1917_movie(batch, feature_extractor, layer_name, input_size
     return features
 # EOF
 
+
+"""
+save_ipca
+Generate a filename for saving an Incremental PCA model based on movie patches.
+
+INPUT:
+    - paths: dict -> must contain key 'data_path'
+    - model_name: str -> name of the model
+    - layer_name: str -> CNN/ANN layer used for features
+    - n_components: int -> number of PCA components
+    - sq_size: int -> square patch size
+    - pooling: str -> pooling method ('all' or specific)
+
+OUTPUT:
+    - savename: str -> full path to save the IPCA model
+"""
+def save_ipca(paths, model_name, layer_name, n_components, sq_size, pooling):
+    models_path = f"{paths['data_path']}/models"
+    savename = f"{models_path}/{model_name}_{layer_name}_{n_components}_components_{sq_size}x{sq_size}_{pooling}pool.pkl"
+    return savename
+
+"""
+ipca_movie_patches
+Perform incremental PCA on patches extracted from the 1917 movie across multiple runs.
+
+INPUT:
+    - paths: dict -> must contain 'data_path' for stimuli
+    - rank: int -> process rank for printing/logging
+    - layer_name: str -> CNN/ANN layer to extract features from
+    - model_name: str -> name of the model
+    - model: torch.nn.Module -> pretrained feature extractor
+    - n_components: int -> number of PCA components
+    - batch_size: int -> number of patches per batch
+    - patches_per_frame: int -> patches to sample per frame
+    - frames_step: int -> frame subsampling step
+    - patches_overhead_sampling: float -> extra patches fraction to ensure coverage
+    - sq_size: int -> size of square patches
+    - input_size: int -> input resolution for model
+    - pooling: str -> pooling method for features
+    - secs_to_skip: int (default=5) -> seconds to skip at movie start
+
+OUTPUT:
+    - None (saves the Incremental PCA model to disk)
+
+PROCESS:
+    - Opens movie captures and computes sampling strategy
+    - Extracts center patches from sampled frames
+    - Preprocesses batches and extracts features
+    - Fits Incremental PCA incrementally over all batches
+    - Saves the trained PCA model using `joblib`
+"""
+def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, input_size, pooling, secs_to_skip=5):
+    device = get_device()
+    PCs_savename = save_ipca(paths, model_name, layer_name, n_components, sq_size, pooling)
+    if os.path.exists(PCs_savename):
+        print_wise(f"PCs already exist at {PCs_savename}", rank=rank)
+        return None
+    # end if os.path.exists(PCs_savename):
+    feature_extractor = create_feature_extractor(
+        model, return_nodes=[layer_name]
+    ).to(device) # or something else for other models (e.g. dino)
+    ipca_obj = IncrementalPCA(n_components=n_components, batch_size=batch_size)
+    caps_list = capture_1917_movie_runs(paths)
+    n_movies = len(caps_list)
+    fps = caps_list[0].get(cv2.CAP_PROP_FPS)
+    frames_to_skip = round(secs_to_skip*fps)
+    frames_per_run = []
+    for cap in caps_list:
+        _, _, n_frames = get_video_dimensions(cap)
+        frames_per_run.append(n_frames)
+    # end for cap in caps_list:
+    patches_to_read = batch_size + round(batch_size*patches_overhead_sampling) # the number of patches we have to read at every step
+    patches_per_frame_per_all_movies = n_movies*patches_per_frame/frames_step # number of patches we'll sample by counting the three movies
+    frames_to_read_per_movie = round(patches_to_read/patches_per_frame_per_all_movies) # the number of patches we have to read at every step
+    max_frames = max(frames_per_run)
+    min_frames = min(frames_per_run)
+    batch_starts = np.arange(frames_to_skip, max_frames, frames_to_read_per_movie)
+    tot_batch_n = len(batch_starts) + round(len(batch_starts)*patches_overhead_sampling)
+    while True: # little check that we don't surpass the three videos in the first 10 steps
+        np.random.shuffle(batch_starts)
+        mask = batch_starts[:10] < min_frames - batch_size
+        if np.all(mask):
+            break
+        # end if np.all(mask):
+    # end while True:
+    tot_frames = None
+    for idx, start_f in enumerate(batch_starts): # sample from the whole movies
+        start_s = start_f/fps
+        for cap, tot_f in zip(caps_list, frames_per_run): # for each of the movies in the caps_list, it reads the frames at that point
+            if start_f < tot_f: # enter here only if the current start is in the movie
+                end_f = min(start_f+frames_to_read_per_movie, tot_f) # because we might surpass the end of the video
+                end_s = end_f/fps
+                v = read_video(paths, None, cap=cap, start=start_s, end=end_s, release=False, verbose=False)
+                v = v[::frames_step]
+                v = extract_center_patches(v, sq_size)
+                if tot_frames is None:
+                    tot_frames = v
+                else:
+                    tot_frames.extend(v)# = torch.concatenate((tot_frames, v), dim=0)
+                # end if tot_frames is None:
+        batch = sample_random_patches(tot_frames, batch_size)
+        features = extract_features_1917_movie(batch, feature_extractor, layer_name, input_size, pooling=pooling, device=device)
+        ipca_obj.fit(features)
+        print_wise(f"processed batch {idx} of {tot_batch_n}", rank=rank)
+    # end for start_f in batch_starts:
+        
+    for idx, b in enumerate(np.arange(0, len(tot_frames) - batch_size, batch_size)): # process the remaining overhead (skip the last one to maintain the batch size constant)
+        batch = sample_random_patches(tot_frames, batch_size)
+        features = extract_features_1917_movie(batch, feature_extractor, layer_name, input_size, pooling=pooling, device=device)
+        ipca_obj.fit(features)
+        print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}", rank=rank)
+
+    joblib.dump(ipca_obj, PCs_savename)
+    print_wise(f"Model successfully saved at {PCs_savename}", rank=rank)
+# EOF
