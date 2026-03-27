@@ -784,7 +784,7 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
         # end if np.all(mask):
     # end while True:
     tot_frames = None
-    for idx, start_f in enumerate(batch_starts[:5]): # sample from the whole movies
+    for idx, start_f in enumerate(batch_starts): # sample from the whole movies
         start_s = start_f/fps
         for cap, tot_f in zip(caps_list, frames_per_run): # for each of the movies in the caps_list, it reads the frames at that point
             if start_f < tot_f: # enter here only if the current start is in the movie
