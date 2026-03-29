@@ -813,3 +813,23 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
     joblib.dump(ipca_obj, PCs_savename)
     print_wise(f"Model successfully saved at {PCs_savename}", rank=rank)
 # EOF
+
+"""
+save_ANN_features
+Creates the savename for the ANN features
+INPUT:
+    - paths: {str: str} -> requires data_path
+    - full_model_name: str -> the model name comprising also the layer name, like this: "{model_name}_{layer_name}"
+    - fs: int -> the sampling frequency of the model
+    - sub_num: int
+    - run: int
+    - n_components: int -> the number of components extracted from the ANN model
+    - sq_side: int -> how big in pixels was the size of the square extracted
+    - pooling: str -> how we pooled the ANN features ('mean', 'max', 'all')
+OUTPUT:
+    - save_name: str -> the full path to the file, like this: '/Users/tizianocausin/1917_local/models/sub003_run01_alexnet_classifier.2_1000components_allpooling_gazedep_384x384_24Hz.h5' 
+"""
+def save_ANN_features(paths, full_model_name, fs, sub_num, run, n_components, sq_side, pooling,):
+    save_name = f"{paths['data_path']}/models/sub{sub_num:03d}_run{run:02d}_{full_model_name}_{n_components}components_{pooling}pooling_gazedep_{sq_side}x{sq_side}_{round(fs)}Hz.h5"
+    return save_name
+# EOF

@@ -4,4 +4,4 @@ from .utils import get_video_dimensions, read_video, load_stimuli_models, resize
 
 from .computational_models import detect_faces, make_corners, par_detect_faces, compute_dg_saliency, ICF_setup, compute_ICF_saliency, compute_torchvision_model, img_dataloader_feature_extraction_loop, img_feats_extraction, map_image_order_from_ann_to_monkey, img_feats_extraction_pooling
 
-from .gaze_dep_models import pad_frame, extract_square_patch, save_pixelwise_luminance, pixelwise_luminance, wrapper_run_sequential_gaze_dep_mod, eyeOF_wrapper, save_OF, OF_wrapper, ipca_movie_patches, save_ipca_patch
+from .gaze_dep_models import pad_frame, extract_square_patch, save_pixelwise_luminance, pixelwise_luminance, wrapper_run_sequential_gaze_dep_mod, eyeOF_wrapper, save_OF, OF_wrapper, ipca_movie_patches, save_ipca_patch, save_ANN_features
