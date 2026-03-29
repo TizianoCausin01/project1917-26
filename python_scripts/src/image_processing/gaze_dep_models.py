@@ -814,6 +814,7 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
     print_wise(f"Model successfully saved at {PCs_savename}", rank=rank)
 # EOF
 
+
 """
 save_ANN_features
 Creates the savename for the ANN features
@@ -833,3 +834,126 @@ def save_ANN_features(paths, full_model_name, fs, sub_num, run, n_components, sq
     save_name = f"{paths['data_path']}/models/sub{sub_num:03d}_run{run:02d}_{full_model_name}_{n_components}components_{pooling}pooling_gazedep_{sq_side}x{sq_side}_{round(fs)}Hz.h5"
     return save_name
 # EOF
+
+
+"""
+gaze_dep_ANN_extraction
+Extract gaze-dependent ANN features from a movie by sampling square patches
+centered at gaze positions and projecting them onto PCA components.
+
+INPUT:
+    - paths: dict[str, str] -> Dictionary containing data and output paths.
+    - rank: int -> Process rank (for logging).
+    - sub_num: int -> Subject identifier.
+    - sq_side: int -> Side length of the square patch (in pixels).
+    - model: torch.nn.Module -> Pretrained model used for feature extraction.
+    - model_name: str -> Name of the model (used for saving).
+    - layer_name: str -> Model layer from which features are extracted.
+    - n_components: int -> Number of PCA components.
+    - pooling: str -> Pooling strategy applied to features.
+    - PCs: np.ndarray -> PCA projection matrix (features projected via @ PCs).
+    - input_size: int -> Input size expected by the model.
+    - run: int -> Run index (1–6).
+    - eye_fs: int -> Eyetracking sampling frequency.
+    - device: str -> Device for computation ("cpu", "cuda", "mps").
+    - screen_res: tuple[int, int] (default=(1080, 1920)) -> Screen resolution (H, W).
+    - secs_to_skip: int (default=5) -> Seconds skipped at the beginning of the movie.
+
+OUTPUT:
+    - None -> Saves extracted feature matrix to disk as an HDF5 file:
+        dataset name: "vecrep", shape (n_components, n_frames).
+
+NOTES:
+    - Each frame is padded to screen resolution and sampled at gaze coordinates.
+    - Features are extracted per frame and projected onto PCA space.
+    - If output already exists, computation is skipped.
+"""
+def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_side: int, model, model_name: str,layer_name, n_components, pooling, PCs, input_size,  run: int, eye_fs, device, screen_res=(1080, 1920), secs_to_skip=5,): 
+    movie_part = run2part(run)
+    movie_fn = f"{paths['data_path']}/stimuli/Project1917_movie_part{movie_part}_24Hz.mp4"
+    cap = cv2.VideoCapture(movie_fn)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, round(5*fps))
+    h, w, frames_n = get_video_dimensions(cap)
+    save_name = save_ANN_features(paths, f"{model_name}_{layer_name}", round(fps), sub_num, run, n_components, sq_side, pooling,)
+    if os.path.exists(save_name):
+        print_wise(f"model already exists at {save_name}", rank=rank)
+        return None
+    # end if os.path.exists(save_name):
+    feature_extractor = create_feature_extractor(
+        model, return_nodes=[layer_name]
+    ).to(device)
+    xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, eye_fs, xy=True)
+    xy_gaze.resample(fps)
+    frames_n -= round(secs_to_skip*fps) +2 # to be on the safe side, because when downsampled, the number of gaze-datapoints exceeds the number of frames
+    if frames_n > len(xy_gaze):
+        raise IndexError(f"The number of frames ({frames_n}) is larger than the number of gaze datapoints ({len(xy_gaze)}) in sub {sub_num} run {run}")
+    # end if frames_n > len(xy_gaze):
+
+    offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
+    canvas = None
+    features = []
+    for frame_idx in range(frames_n):
+        xy = xy_gaze[frame_idx]
+        ret, frame = cap.read()
+        if not ret:
+            raise RuntimeError(f"Failed to read frame {frame_idx} from {movie_fn}")
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        canvas = pad_frame(frame, (h,w), offset_dims,)
+        frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
+        frame_patch = torch.from_numpy(frame_patch)
+        curr_features = extract_features_1917_movie(frame_patch[None, :, :, :], feature_extractor, layer_name, input_size, pooling=pooling, device=device)
+        curr_features = np.squeeze(curr_features @ PCs) # TODO check if features are a column vector
+        features.append(curr_features)
+        if frame_idx%1000 == 0:
+            print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {layer_name}")
+        # canvas = sequential_gaze_dep_loop(cap, xy_gaze, frame_idx, sq_side, (h,w), offset_dims, canvas, features, func, rank, sub_num, run, *args, **kwargs)
+    # end for frame_idx in range(frames_n):
+    
+    features = np.stack(features, axis=1)
+    with h5py.File(save_name, "w") as f:
+        f.create_dataset("vecrep", data=features)
+    # end with h5py.File(save_name, "w") as f:
+    print_wise(f"model {model_name} saved at {save_name}", rank=rank)
+# EOF
+
+
+
+"""
+ANN_extraction_projection_1917_wrapper
+Wrapper function to run gaze-dependent ANN feature extraction across all runs
+using precomputed PCA components.
+
+INPUT:
+    - paths: dict[str, str] -> Dictionary containing data and output paths.
+    - rank: int -> Process rank (for logging).
+    - sub_num: int -> Subject identifier.
+    - model: torch.nn.Module -> Pretrained model used for feature extraction.
+    - sq_side: int -> Side length of the square patch (in pixels).
+    - input_size: int -> Input size expected by the model.
+    - model_name: str -> Name of the model.
+    - layer_name: str -> Model layer from which features are extracted.
+    - n_components: int -> Number of PCA components.
+    - pooling: str -> Pooling strategy applied to features.
+    - eye_fs: int -> Eyetracking sampling frequency.
+    - device: str -> Device for computation ("cpu", "cuda", "mps").
+    - screen_res: tuple[int, int] (default=(1080, 1920)) -> Screen resolution (H, W).
+    - secs_to_skip: int (default=5) -> Seconds skipped at the beginning of each run.
+
+OUTPUT:
+    - None -> Calls `gaze_dep_ANN_extraction` for each run (1–6) and saves results to disk.
+
+NOTES:
+    - PCA components are loaded once and reused across runs.
+    - Projection matrix is transposed before use.
+"""
+def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub_num: int, model, sq_side: int, input_size, model_name: str, layer_name, n_components, pooling, eye_fs, device, screen_res=(1080, 1920), secs_to_skip=5,): 
+    ipca_path = save_ipca_patch(paths, model_name, layer_name, n_components, sq_side, pooling,) # model_name, layer_name, n_components, sq_size, pooling
+    ipca_obj = joblib.load(ipca_path)
+    PCs = ipca_obj.components_.T
+    print_wise(f"Start running {model_name} for sub {sub_num}", rank=rank)
+    for irun in range(1, 7):
+        gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, model, model_name, layer_name, n_components, pooling, PCs, input_size, irun, eye_fs, device, screen_res=(1080, 1920), secs_to_skip=5, )
+    # end for irun in range(1, 7):
+# EOF
+
