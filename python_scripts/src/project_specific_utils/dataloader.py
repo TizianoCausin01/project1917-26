@@ -3,8 +3,13 @@ import os, yaml, sys
 import numpy as np
 import h5py
 from scipy.io import loadmat
+ENV = os.getenv("MY_ENV", "dev")
+with open("../../config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+paths = config[ENV]["paths"]
+sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
-from general_utils.utils import TimeSeries
+from useful_stuff.general_utils.utils import TimeSeries
 
 '''
 load_eyetracking_data
