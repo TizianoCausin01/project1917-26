@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=24:00:00
+#SBATCH --ntasks=2 # number of processes
+#SBATCH --gres=gpu:1  
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=70G
+#SBATCH --account=livingstone       # account name
+#SBATCH --partition=gpu # partition name
+#SBATCH --job-name=ipca_ANNs_patches
+#SBATCH --output=/home/tic569/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+
+# sbatch ipca_movie_patches vit_l_16 1000 1024 3 3 2 384 384 all timm
+cd /home/tic569/project1917-26/python_scripts/scripts
+module load gcc/14.2.0
+module load cuda/12.8
+module load python/3.13.1
+module load openmpi
+source ~/project1917-26/.venv/bin/activate
+mpiexec python3 run_ipca_movie_patches.py \
+    --model_name $1 \
+    --n_components $2 \
+    --batch_size $3 \
+    --patches_per_frame $4 \
+    --frames_step $5 \
+    --patches_overhead_sampling $6 \
+    --sq_size $7 \
+    --input_size $8 \
+    --pooling $9 \
+    --pkg ${10}
+
+# example call 
+# sbatch img_feats_extraction_pooling.sh vit_l_16 1100 384 fewer_occlusion timm mean
+
+
