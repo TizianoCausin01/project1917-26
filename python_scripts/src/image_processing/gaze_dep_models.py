@@ -12,7 +12,8 @@ paths = config[ENV]["paths"]
 sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
 from useful_stuff.general_utils import print_wise, TimeSeries, get_device
-from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch, pool_features, read_video, get_layer_output_shape
+from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch,  read_video 
+from useful_stuff.image_processing.computational_models import pool_features, get_layer_output_shape
 from project_specific_utils.dataloader import load_eyetracking_data
 from project_specific_utils.utils import run2part
 """
