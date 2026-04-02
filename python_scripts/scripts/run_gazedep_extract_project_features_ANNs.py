@@ -11,7 +11,7 @@ sys.path.append(paths["useful_stuff_path"])
 from image_processing.gaze_dep_models import ANN_extraction_projection_1917_wrapper
 from parallel.parallel_funcs import master_workers_queue
 from useful_stuff.general_utils.utils import get_device
-from useful_stuff.image_processing.utils import get_relevant_output_layers, load_torchvision_model, load_timm_model
+from useful_stuff.image_processing.computational_models import get_relevant_output_layers, load_torchvision_model, load_timm_model
 
 # e.g. to call it:
 # mpiexec -np 5 python3 run_gazedep_extract_project_features_ANNs.py --sub_to_proc 1 --eye_fs 50 --model_name vit_l_16 --layer_idx 10 --n_components 1000 --sq_size 384 --input_size 384 --pooling all --pkg timm

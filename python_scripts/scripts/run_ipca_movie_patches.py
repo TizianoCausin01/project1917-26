@@ -11,7 +11,7 @@ sys.path.append(paths["useful_stuff_path"])
 from image_processing.gaze_dep_models import ipca_movie_patches
 from parallel.parallel_funcs import master_workers_queue
 from useful_stuff.general_utils.utils import get_device
-from useful_stuff.image_processing.utils import get_relevant_output_layers, load_torchvision_model, load_timm_model
+from useful_stuff.image_processing.computational_models import get_relevant_output_layers, load_torchvision_model, load_timm_model
 
 # ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, input_size, pooling, secs_to_skip=5)
 # e.g. to call it:
