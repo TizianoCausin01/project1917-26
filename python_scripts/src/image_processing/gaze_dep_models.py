@@ -916,7 +916,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
             features[l].append(f_proj)
         # end for l, f in curr_features:
         if frame_idx%1000 == 0:
-            print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {layer_name}")
+            print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {ANN.model_name}")
     # end for frame_idx in range(frames_n):
 
     for l, final_f in features:
@@ -924,7 +924,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
         with h5py.File(save_names[l], "w") as f:
             f.create_dataset("vecrep", data=final_f)
         # end with h5py.File(save_name, "w") as f:
-        print_wise(f"model {model_name} saved at {save_name}", rank=rank)
+        print_wise(f"model {ANN.model_name} saved at {save_names[l]}", rank=rank)
 # EOF
 
 
@@ -957,11 +957,10 @@ NOTES:
     - PCA components are loaded once and reused across runs.
     - Projection matrix is transposed before use.
 """
-def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub_num: int, ANN, sq_side: int, n_components, eye_fs, screen_res=(1080, 1920), secs_to_skip=5,): 
-    PCs_dict = {}
-    print_wise(f"Start running {model_name} for sub {sub_num}", rank=rank)
+def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub_num: int, ANN, sq_side: int, n_components, PCs_dict, eye_fs, screen_res=(1080, 1920), secs_to_skip=5,): 
+    print_wise(f"Start running {ANN.model_name} for sub {sub_num}", rank=rank)
     for irun in range(1, 7):
-        gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, ANN, n_components, PCs, irun, eye_fs, screen_res=(1080, 1920), secs_to_skip=5, )
+        gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, ANN, n_components, PCs_dict, irun, eye_fs, screen_res=(1080, 1920), secs_to_skip=5, )
     # end for irun in range(1, 7):
 # EOF
 
