@@ -4,6 +4,8 @@ import h5py
 import joblib
 from sklearn.decomposition import IncrementalPCA
 from torchvision.models.feature_extraction import create_feature_extractor
+import torch.nn.functional as F
+import torch
 import cv2
 ENV = os.getenv("MY_ENV", "dev")
 with open("../../config.yaml", "r") as f:
@@ -12,7 +14,7 @@ paths = config[ENV]["paths"]
 sys.path.append(paths["useful_stuff_path"])
 sys.path.append("..")
 from useful_stuff.general_utils import print_wise, TimeSeries, get_device
-from useful_stuff.image_processing.utils import get_video_dimensions, preprocess_batch,  read_video 
+from useful_stuff.image_processing.utils import get_video_dimensions, read_video 
 from useful_stuff.image_processing.computational_models import pool_features, get_layer_output_shape
 from project_specific_utils.dataloader import load_eyetracking_data
 from project_specific_utils.utils import run2part
@@ -956,5 +958,42 @@ def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub
     for irun in range(1, 7):
         gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, model, model_name, layer_name, n_components, pooling, PCs, input_size, irun, eye_fs, device, screen_res=(1080, 1920), secs_to_skip=5, )
     # end for irun in range(1, 7):
+# EOF
+
+
+
+"""
+preprocess_batch
+Convert a batch of images to model-ready format: channel-first, resized, and normalized.
+
+INPUT:
+    - batch: torch.Tensor -> (B, H, W, C)
+    - input_size: int -> target spatial size (e.g. 224, 384)
+    - m: list[float] -> mean for normalization (default: ImageNet)
+    - std: list[float] -> std for normalization (default: ImageNet)
+
+OUTPUT:
+    - batch: torch.Tensor -> (B, 3, input_size, input_size)
+"""
+def preprocess_batch(batch, input_size, m=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], device='cpu'):
+    # 1. Convert to float and scale to [0,1] if needed
+    batch = batch.to(device)
+    batch = batch.permute(0,3,1,2)
+    if batch.dtype != torch.float32:
+        batch = batch.float()
+    if batch.max() > 1.0:
+        batch = batch / 255.0
+    # 2. Resize (keeps it simple: direct resize)
+    batch = F.interpolate(
+        batch,
+        size=(input_size, input_size),
+        mode='bilinear',
+        align_corners=False
+    )
+    # 3. Normalize with ImageNet stats
+    mean = torch.tensor(m, device=batch.device)[None, :, None, None]
+    std  = torch.tensor(std, device=batch.device)[None, :, None, None]
+    batch = (batch - mean) / std
+    return batch
 # EOF
 
