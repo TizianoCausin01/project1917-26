@@ -32,7 +32,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_url", type=str, default="facebook/dinov3-vitl16-pretrain-lvd1689m")
 
     cfg = parser.parse_args()
-    device = get_device(verbose=True)
     m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
     print(m)
     task_list = m.relevant_layers
