@@ -729,16 +729,13 @@ INPUT:
     - paths: dict -> must contain 'data_path' for stimuli
     - rank: int -> process rank for printing/logging
     - layer_name: str -> CNN/ANN layer to extract features from
-    - model_name: str -> name of the model
-    - model: torch.nn.Module -> pretrained feature extractor
+    - ANN: imgANN -> the imgANN object I created
     - n_components: int -> number of PCA components
     - batch_size: int -> number of patches per batch
     - patches_per_frame: int -> patches to sample per frame
     - frames_step: int -> frame subsampling step
     - patches_overhead_sampling: float -> extra patches fraction to ensure coverage
     - sq_size: int -> size of square patches
-    - input_size: int -> input resolution for model
-    - pooling: str -> pooling method for features
     - secs_to_skip: int (default=5) -> seconds to skip at movie start
 
 OUTPUT:
@@ -751,17 +748,15 @@ PROCESS:
     - Fits Incremental PCA incrementally over all batches
     - Saves the trained PCA model using `joblib`
 """
-def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, input_size, pooling, secs_to_skip=5):
+def ipca_movie_patches(paths, rank, layer_name, ANN, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, secs_to_skip=5):
     device = get_device()
-    PCs_savename = save_ipca_patch(paths, model_name, layer_name, n_components, sq_size, pooling)
+    PCs_savename = save_ipca_patch(paths, ANN.get_model_name(), layer_name, n_components, sq_size, ANN.get_pooling())
     if os.path.exists(PCs_savename):
         print_wise(f"PCs already exist at {PCs_savename}", rank=rank)
         return None
     # end if os.path.exists(PCs_savename):
-    feature_extractor = create_feature_extractor(
-        model, return_nodes=[layer_name]
-    ).to(device) # or something else for other models (e.g. dino)
-    layer_dim = get_layer_output_shape(feature_extractor, layer_name, imsize=input_size)
+    layer_dim = ANN.get_layer_output_shape(layer_name)
+    ANN.create_forward_hook([layer_name,])
     ipca_obj = IncrementalPCA(n_components=min(n_components, np.prod(layer_dim)), batch_size=batch_size)
     caps_list = capture_1917_movie_runs(paths)
     n_movies = len(caps_list)
@@ -802,16 +797,20 @@ def ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components,
                     tot_frames.extend(v)# = torch.concatenate((tot_frames, v), dim=0)
                 # end if tot_frames is None:
         batch = sample_random_patches(tot_frames, batch_size)
-        features = extract_features_1917_movie(batch, feature_extractor, layer_name, input_size, pooling=pooling, device=device)
-        ipca_obj.fit(features)
-        print_wise(f"processed batch {idx} of {tot_batch_n}", rank=rank)
+        batch = preprocess_batch(batch, ANN.img_size, device=device)
+        ANN.model(batch)
+        f = ANN.features[layer_name].cpu().detach().numpy()
+        ipca_obj.fit(f)
+        print_wise(f"processed batch {idx} of {tot_batch_n} features shape = {ANN.features[layer_name].shape}", rank=rank)
     # end for start_f in batch_starts:
         
     for idx, b in enumerate(np.arange(0, len(tot_frames) - batch_size, batch_size)): # process the remaining overhead (skip the last one to maintain the batch size constant)
         batch = sample_random_patches(tot_frames, batch_size)
-        features = extract_features_1917_movie(batch, feature_extractor, layer_name, input_size, pooling=pooling, device=device)
-        ipca_obj.fit(features)
-        print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}", rank=rank)
+        batch = preprocess_batch(batch, ANN.img_size, device=device)
+        ANN.model(batch)
+        f = ANN.features[layer_name].cpu().detach().numpy()
+        ipca_obj.fit(f)
+        print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}, features shape = {ANN.features[layer_name].shape}", rank=rank)
 
     joblib.dump(ipca_obj, PCs_savename)
     print_wise(f"Model successfully saved at {PCs_savename}", rank=rank)
