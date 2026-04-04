@@ -798,7 +798,8 @@ def ipca_movie_patches(paths, rank, layer_name, ANN, n_components, batch_size, p
                 # end if tot_frames is None:
         batch = sample_random_patches(tot_frames, batch_size)
         batch = preprocess_batch(batch, ANN.img_size, device=device)
-        ANN.model(batch)
+        with torch.no_grad():
+            ANN.model(batch)
         f = ANN.features[layer_name].cpu().detach().numpy()
         ipca_obj.fit(f)
         print_wise(f"processed batch {idx} of {tot_batch_n} features shape = {ANN.features[layer_name].shape}", rank=rank)
@@ -807,7 +808,8 @@ def ipca_movie_patches(paths, rank, layer_name, ANN, n_components, batch_size, p
     for idx, b in enumerate(np.arange(0, len(tot_frames) - batch_size, batch_size)): # process the remaining overhead (skip the last one to maintain the batch size constant)
         batch = sample_random_patches(tot_frames, batch_size)
         batch = preprocess_batch(batch, ANN.img_size, device=device)
-        ANN.model(batch)
+        with torch.no_grad():
+            ANN.model(batch)
         f = ANN.features[layer_name].cpu().detach().numpy()
         ipca_obj.fit(f)
         print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}, features shape = {ANN.features[layer_name].shape}", rank=rank)
@@ -910,8 +912,8 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
         canvas = pad_frame(frame, (h,w), offset_dims,)
         frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
         frame_patch = torch.from_numpy(frame_patch)
-        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)
-        ANN.model(frame_patch)
+        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)        with torch.no_grad():
+            ANN.model(frame_patch)
         for l, f in ANN.get_features().items():
             f = f.cpu().detach().numpy()
             f_proj = np.squeeze(f @ PCs[l]) 
