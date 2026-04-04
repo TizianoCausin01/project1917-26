@@ -1,6 +1,5 @@
 import os, yaml, sys
 import argparse
-from torchvision.datasets import ImageFolder
 import torch
 ENV = os.getenv("MY_ENV", "dev")
 with open("../../config.yaml", "r") as f:
@@ -10,7 +9,7 @@ subjects = config['subjects']
 sys.path.append(paths["src_path"])
 sys.path.append(paths["useful_stuff_path"])
 from image_processing.gaze_dep_models import ipca_movie_patches
-from parallel.parallel_funcs import master_workers_queue
+from useful_stuff.parallel.parallel_funcs import parallel_setup, master_workers_queue
 from useful_stuff.general_utils.utils import get_device
 from useful_stuff.image_processing.computational_models import imgANN 
 # ipca_movie_patches(paths, rank, layer_name, model_name, model, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, input_size, pooling, secs_to_skip=5)
@@ -32,8 +31,14 @@ if __name__ == "__main__":
     parser.add_argument("--model_url", type=str, default="facebook/dinov3-vitl16-pretrain-lvd1689m")
 
     cfg = parser.parse_args()
-    m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
-    print(m)
-    task_list = m.relevant_layers
+    _, rank, _ = parallel_setup()
+
+    if rank != 0
+        m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
+        print(m)
+        task_list = m.relevant_layers
+    else:
+        m = None
+        task_list = None
 
     master_workers_queue(task_list, paths, ipca_movie_patches, *(m, cfg.n_components, cfg.batch_size, cfg.patches_per_frame, cfg.frames_step, cfg.patches_overhead_sampling, cfg.sq_size,)) 
