@@ -888,6 +888,8 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
         # end if os.path.exists(save_fn):
     # end for l in ANN.relevant_layers:
     layers_to_compute = list(save_names.keys())
+    if not layers_to_compute:
+        return None
     ANN.create_forward_hook(layer_names=layers_to_compute)
     xy_gaze, _ = load_eyetracking_data(paths, sub_num, run, eye_fs, xy=True)
     xy_gaze.resample(fps)
@@ -908,9 +910,9 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
         canvas = pad_frame(frame, (h,w), offset_dims,)
         frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
         frame_patch = torch.from_numpy(frame_patch)
-        frame_patch = preprocess_batch(frame_patch, ANN.img_size, device=device)
+        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)
         ANN.model(frame_patch)
-        for l, f in ANN.get_features():
+        for l, f in ANN.get_features().items():
             f = f.cpu().detach().numpy()
             f_proj = np.squeeze(f @ PCs[l]) 
             features[l].append(f_proj)
@@ -919,7 +921,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
             print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {ANN.model_name}")
     # end for frame_idx in range(frames_n):
 
-    for l, final_f in features:
+    for l, final_f in features.items():
         final_f = np.stack(final_f, axis=1)
         with h5py.File(save_names[l], "w") as f:
             f.create_dataset("vecrep", data=final_f)

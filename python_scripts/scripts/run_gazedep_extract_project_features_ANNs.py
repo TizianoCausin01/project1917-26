@@ -1,6 +1,7 @@
 import os, yaml, sys
 import argparse
 import joblib
+import torch
 ENV = os.getenv("MY_ENV", "dev")
 with open("../../config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -33,7 +34,7 @@ if rank != 0:
     m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
     PCs_dict = {}
     for l in m.relevant_layers:
-        ipca_path = save_ipca_patch(paths, m.model_name, l, cfg.n_components, cfg.sq_side, cfg.pooling,) 
+        ipca_path = save_ipca_patch(paths, m.model_name, l, cfg.n_components, cfg.sq_size, cfg.pooling,) 
         ipca_obj = joblib.load(ipca_path)
         PCs = ipca_obj.components_.T
         PCs_dict[l] = PCs
