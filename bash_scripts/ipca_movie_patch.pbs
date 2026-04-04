@@ -1,0 +1,26 @@
+#!/bin/bash
+#PBS -N ipca_movie_patch
+#PBS -l select=1:ncpus=8:mem=250gb
+#PBS -q commonCPUQ
+#PBS -l walltime=12:00:00
+#PBS -V
+#PBS -o ~/output_jobs/ipca_movie_patch.${PBS_JOBID%%.*}.log
+#PBS -j oe
+
+exec > ~/output_jobs/ipca_movie_patch.${PBS_JOBID%%.*}.log 2>&1
+cd /home/tiziano.causin/project1917-26/python_scripts/scripts
+source /home/tiziano.causin/project1917-26/.venv/bin/activate 
+module purge
+#module load nvhpc-hpcx-cuda13/25.9
+module load OpenMPI/4.1.5-GCC-12.3.0
+mpiexec python3 run_ipca_movie_patches.py \
+    --model_name vit_l_16 \
+    --n_components 1000 \
+    --batch_size 1024 \
+    --patches_per_frame 3 \
+    --frames_step 3 \
+    --patches_overhead_sampling 2 \
+    --sq_size 384 \
+    --input_size 384 \
+    --pooling all \
+    --pkg timm
