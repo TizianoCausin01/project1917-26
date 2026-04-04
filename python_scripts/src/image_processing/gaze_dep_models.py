@@ -912,7 +912,8 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
         canvas = pad_frame(frame, (h,w), offset_dims,)
         frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
         frame_patch = torch.from_numpy(frame_patch)
-        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)        with torch.no_grad():
+        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)        
+        with torch.no_grad():
             ANN.model(frame_patch)
         for l, f in ANN.get_features().items():
             f = f.cpu().detach().numpy()
