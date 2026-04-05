@@ -34,7 +34,8 @@ if __name__ == "__main__":
     _, rank, _ = parallel_setup()
 
     if rank != 0:
-        m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
+        m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float32, attn_implementation='sdpa', repo_url=cfg.model_url)
+        m.model.eval()
         print(m)
         task_list = m.relevant_layers
     else:

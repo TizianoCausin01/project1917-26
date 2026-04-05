@@ -32,6 +32,7 @@ task_list = config["subjects"][:cfg.sub_to_proc]
 _, rank, _ = parallel_setup()
 if rank != 0:
     m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
+    m.model.eval()
     PCs_dict = {}
     for l in m.relevant_layers:
         ipca_path = save_ipca_patch(paths, m.model_name, l, cfg.n_components, cfg.sq_size, cfg.pooling,) 
