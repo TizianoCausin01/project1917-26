@@ -751,6 +751,7 @@ PROCESS:
 def ipca_movie_patches(paths, rank, layer_name, ANN, n_components, batch_size, patches_per_frame, frames_step, patches_overhead_sampling, sq_size, secs_to_skip=5):
     device = get_device()
     PCs_savename = save_ipca_patch(paths, ANN.get_model_name(), layer_name, n_components, sq_size, ANN.get_pooling())
+    sub_batch_size = batch_size//3
     if os.path.exists(PCs_savename):
         print_wise(f"PCs already exist at {PCs_savename}", rank=rank)
         return None
@@ -797,22 +798,36 @@ def ipca_movie_patches(paths, rank, layer_name, ANN, n_components, batch_size, p
                     tot_frames.extend(v)# = torch.concatenate((tot_frames, v), dim=0)
                 # end if tot_frames is None:
         batch = sample_random_patches(tot_frames, batch_size)
-        batch = preprocess_batch(batch, ANN.img_size, device=device)
-        with torch.no_grad():
-            ANN.model(batch)
-        f = ANN.features[layer_name].cpu().detach().numpy()
-        ipca_obj.fit(f)
-        print_wise(f"processed batch {idx} of {tot_batch_n} features shape = {ANN.features[layer_name].shape}", rank=rank)
+        features_list = []
+        for i in range(0, batch_size, sub_batch_size):
+            sub_batch = batch[i:i+sub_batch_size]
+            sub_batch = preprocess_batch(sub_batch, ANN.img_size, device=device)
+            with torch.no_grad():
+                ANN.model(sub_batch)
+            f = ANN.features[layer_name].detach().cpu().numpy()
+            features_list.append(f)
+            ANN.features[layer_name] = None
+            torch.cuda.empty_cache() 
+        f_full = np.concatenate(features_list, axis=0)
+        ipca_obj.fit(f_full)
+        print_wise(f"processed batch {idx} of {tot_batch_n} features shape = {f_full.shape}", rank=rank)
     # end for start_f in batch_starts:
         
     for idx, b in enumerate(np.arange(0, len(tot_frames) - batch_size, batch_size)): # process the remaining overhead (skip the last one to maintain the batch size constant)
         batch = sample_random_patches(tot_frames, batch_size)
-        batch = preprocess_batch(batch, ANN.img_size, device=device)
-        with torch.no_grad():
-            ANN.model(batch)
-        f = ANN.features[layer_name].cpu().detach().numpy()
-        ipca_obj.fit(f)
-        print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}, features shape = {ANN.features[layer_name].shape}", rank=rank)
+        features_list = []
+        for i in range(0, batch_size, sub_batch_size):
+            sub_batch = batch[i:i+sub_batch_size]
+            sub_batch = preprocess_batch(sub_batch, ANN.img_size, device=device)
+            with torch.no_grad():
+                ANN.model(sub_batch)
+            f = ANN.features[layer_name].detach().cpu().numpy()
+            features_list.append(f)
+            ANN.features[layer_name] = None
+            torch.cuda.empty_cache() 
+        f_full = np.concatenate(features_list, axis=0)
+        ipca_obj.fit(f_full)
+        print_wise(f"processed batch {idx + len(batch_starts)} of {tot_batch_n}, features shape = {f_full.shape}", rank=rank)
 
     joblib.dump(ipca_obj, PCs_savename)
     print_wise(f"Model successfully saved at {PCs_savename}", rank=rank)
