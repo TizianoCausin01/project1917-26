@@ -1,19 +1,27 @@
 #!/bin/bash
 #PBS -N ipca_movie_patch
-#PBS -l select=1:ncpus=8:mem=250gb
-#PBS -q commonCPUQ
-#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=2:ngpus=1:mem=150gb
+#PBS -q shortGPUQ
+#PBS -l walltime=07:00:00
 #PBS -V
 #PBS -o ~/output_jobs/ipca_movie_patch.${PBS_JOBID%%.*}.log
 #PBS -j oe
 
 exec > ~/output_jobs/ipca_movie_patch.${PBS_JOBID%%.*}.log 2>&1
 cd /home/tiziano.causin/project1917-26/python_scripts/scripts
+source ~/.bashrc
 source /home/tiziano.causin/project1917-26/.venv/bin/activate 
 module purge
-#module load nvhpc-hpcx-cuda13/25.9
-module load OpenMPI/4.1.5-GCC-12.3.0
-mpiexec python3 run_ipca_movie_patches.py \
+module load nvhpc-hpcx-cuda13/25.9
+export OMPI_MCA_hwloc_base_binding_policy=none
+export OMPI_MCA_coll_hcoll_enable=0
+#module load OpenMPI/4.1.5-GCC-12.3.0
+NP=$(nproc) #$(cat $PBS_NODEFILE | wc -l)
+echo "NP = $NP"
+cat $PBS_NODEFILE
+which mpiexec
+which python3
+mpiexec -np $NP python3 -u run_ipca_movie_patches.py \
     --model_name vit_l_16 \
     --n_components 1000 \
     --batch_size 1024 \
