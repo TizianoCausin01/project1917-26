@@ -10,6 +10,7 @@ subjects = config['subjects']
 sys.path.append(paths["src_path"])
 sys.path.append(paths["useful_stuff_path"])
 from image_processing.gaze_dep_models import ANN_extraction_projection_1917_wrapper, save_ipca_patch
+from useful_stuff.general_utils.utils import print_wise
 from useful_stuff.parallel.parallel_funcs import parallel_setup, master_workers_queue
 from useful_stuff.image_processing.computational_models import imgANN
 
@@ -32,13 +33,16 @@ task_list = config["subjects"][:cfg.sub_to_proc]
 _, rank, _ = parallel_setup()
 if rank != 0:
     m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
+    print_wise(m, rank=rank)
     m.model.eval()
     PCs_dict = {}
+    m.set_relevant_layers(m.get_relevant_layers())
     for l in m.relevant_layers:
         ipca_path = save_ipca_patch(paths, m.model_name, l, cfg.n_components, cfg.sq_size, cfg.pooling,) 
         ipca_obj = joblib.load(ipca_path)
         PCs = ipca_obj.components_.T
         PCs_dict[l] = PCs
+        print_wise(f"{l} loaded", rank=rank)
     # end for l in ANN.relevant_layers:
 else:
     m = None
