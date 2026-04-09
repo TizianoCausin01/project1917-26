@@ -849,7 +849,7 @@ INPUT:
 OUTPUT:
     - save_name: str -> the full path to the file, like this: '/Users/tizianocausin/1917_local/models/sub003_run01_alexnet_classifier.2_1000components_allpooling_gazedep_384x384_24Hz.h5' 
 """
-def save_ANN_features(paths, full_model_name, fs, sub_num, run, n_components, sq_side, pooling,):
+def save_ANN_features(paths, full_model_name, sub_num, run, fs, sq_side, n_components, pooling,):
     save_name = f"{paths['data_path']}/models/sub{sub_num:03d}_run{run:02d}_{full_model_name}_{n_components}components_{pooling}pooling_gazedep_{sq_side}x{sq_side}_{round(fs)}Hz.h5"
     return save_name
 # EOF
@@ -897,7 +897,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
     h, w, frames_n = get_video_dimensions(cap)
     save_names = {}
     for l in ANN.relevant_layers:
-        save_fn = save_ANN_features(paths, f"{ANN.model_name}_{l}", round(fps), sub_num, run, n_components, sq_side, ANN.pooling,)
+        save_fn = save_ANN_features(paths, f"{ANN.model_name}_{l}", sub_num, run, round(fps), sq_side, n_components, ANN.pooling,)
         if os.path.exists(save_fn):
             print_wise(f"model already exists at {save_fn}", rank=rank)
         else:
