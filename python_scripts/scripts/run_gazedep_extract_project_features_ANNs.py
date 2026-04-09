@@ -17,7 +17,6 @@ from useful_stuff.image_processing.computational_models import imgANN
 # mpiexec -np 5 python3 run_gazedep_extract_project_features_ANNs.py --sub_to_proc 1 --eye_fs 50 --model_name vit_l_16 --layer_idx 10 --n_components 1000 --sq_size 384 --input_size 384 --pooling all --pkg timm
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--sub_to_proc", type=int) # eventually take it out
 parser.add_argument("--eye_fs", type=int)
 parser.add_argument("--model_name", type=str)
 parser.add_argument("--n_components", type=int)
@@ -28,7 +27,7 @@ parser.add_argument("--pkg", type=str)
 parser.add_argument("--model_url", type=str, default="facebook/dinov3-vitl16-pretrain-lvd1689m")
 
 cfg = parser.parse_args()
-task_list = config["subjects"][:cfg.sub_to_proc]
+task_list = config["subjects"]
 _, rank, _ = parallel_setup()
 if rank != 0:
     m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)

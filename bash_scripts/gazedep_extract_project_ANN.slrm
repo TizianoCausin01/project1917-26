@@ -5,14 +5,14 @@
 #SBATCH --ntasks=2 # number of processes
 #SBATCH --gres=gpu:1  
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=30G
+#SBATCH --mem=100G
 #SBATCH --account=livingstone       # account name
 #SBATCH --partition=gpu # partition name
 #SBATCH --job-name=gazedep_extract_project_ANN
 #SBATCH --output=/home/tic569/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
 
 # mpiexec -np 2 python3 run_extract_project_features_ANNs.py --sub_to_proc 1 --eye_fs 50 --model_name vit_l_16 --layer_idx $i --n_components 1000 --sq_size 384 --input_size 384 --pooling all --pkg timm
-# sbatch gazedep_extract_project_ANNs.slrm 1 50 vit_l_16 1 1000 384 384 all timm
+# sbatch gazedep_extract_project_ANNs.slrm 50 vit_l_16 1000 384 384 all timm
 source ~/.bashrc
 cd /home/tic569/project1917-26/python_scripts/scripts
 module load gcc/14.2.0
@@ -20,16 +20,14 @@ module load cuda/12.8
 module load python/3.13.1
 module load openmpi
 source ~/project1917-26/.venv/bin/activate
-mpiexec python3 run_gazedep_extract_project_features_ANNs.py \
-    --sub_to_proc $1 \
-    --eye_fs $2 \
-    --model_name $3 \
-    --layer_idx $4 \
-    --n_components $5 \
-    --sq_size $6 \
-    --input_size $7 \
-    --pooling $8 \
-    --pkg $9
+mpiexec python3 run_gazedep_extract_project_features_ANN.py \
+    --eye_fs $1 \
+    --layer_idx $2 \
+    --n_components $3 \
+    --sq_size $4 \
+    --input_size $5 \
+    --pooling $6 \
+    --pkg $7
 
 
 
