@@ -32,7 +32,7 @@ cfg = parser.parse_args()
 task_list = config["subjects"]
 _, rank, _ = parallel_setup()
 if rank != 0:
-    m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float16, attn_implementation='sdpa', repo_url=cfg.model_url)
+    m = imgANN(cfg.model_name, cfg.pkg, cfg.input_size, dtype=torch.float32, attn_implementation='sdpa', repo_url=cfg.model_url)
     print_wise(m, rank=rank)
     m.model.eval()
     PCs_dict = {}

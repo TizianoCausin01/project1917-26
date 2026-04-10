@@ -937,6 +937,8 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
             ANN.model(frame_patch)
         for l, f in ANN.get_features().items():
             f = f.cpu().detach().numpy()
+            if np.any(np.isnan(f)):
+                raise ValueError(f"Features at {i_batch} frame contain NaNs at layer {l}")
             f_proj = np.squeeze(f @ PCs[l]) 
             features[l].append(f_proj)
         # end for l, f in curr_features:
