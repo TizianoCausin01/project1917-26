@@ -935,7 +935,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
             f_proj = np.squeeze(f @ PCs[l]) 
             features[l].append(f_proj)
         # end for l, f in curr_features:
-        if frame_idx%1000 == 0:
+        if frame_idx%10 == 0:
             print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {ANN.model_name}")
     # end for frame_idx in range(frames_n):
 
