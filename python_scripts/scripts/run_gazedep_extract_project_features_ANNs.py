@@ -25,6 +25,7 @@ parser.add_argument("--sq_size", type=int)
 parser.add_argument("--input_size", type=int)
 parser.add_argument("--pooling", type=str)
 parser.add_argument("--pkg", type=str)
+parser.add_argument("--batch_size", type=int)
 parser.add_argument("--model_url", type=str, default="facebook/dinov3-vitl16-pretrain-lvd1689m")
 
 cfg = parser.parse_args()
@@ -48,4 +49,4 @@ else:
     PCs_dict = None
 # end if rank != 0:
 
-master_workers_queue(task_list, paths, ANN_extraction_projection_1917_wrapper, *(m, cfg.sq_size, cfg.n_components, PCs_dict, cfg.eye_fs)) 
+master_workers_queue(task_list, paths, ANN_extraction_projection_1917_wrapper, *(m, cfg.sq_size, cfg.n_components, PCs_dict, cfg.eye_fs, cfg.batch_size)) 

@@ -27,7 +27,8 @@ mpiexec python3 run_gazedep_extract_project_features_ANNs.py \
     --sq_size $4 \
     --input_size $5 \
     --pooling $6 \
-    --pkg $7
+    --pkg $7 \
+    --batch_size $8
 
 
 

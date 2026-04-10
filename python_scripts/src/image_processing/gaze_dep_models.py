@@ -887,7 +887,7 @@ NOTES:
     - Features are extracted per frame and projected onto PCA space.
     - If output already exists, computation is skipped.
 """
-def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_side: int, ANN, n_components, PCs,  run: int, eye_fs, screen_res=(1080, 1920), secs_to_skip=5,): 
+def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_side: int, ANN, n_components, PCs,  run: int, eye_fs, batch_size, screen_res=(1080, 1920), secs_to_skip=5,): 
     device = ANN.get_device()
     movie_part = run2part(run)
     movie_fn = f"{paths['data_path']}/stimuli/Project1917_movie_part{movie_part}_24Hz.mp4"
@@ -918,16 +918,21 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
     offset_dims = ((screen_res[0] -h)//2 , ( screen_res[1] - w)//2)
     canvas = None
     features = {l: [] for l in layers_to_compute}
-    for frame_idx in range(frames_n):
-        xy = xy_gaze[frame_idx]
-        ret, frame = cap.read()
-        if not ret:
-            raise RuntimeError(f"Failed to read frame {frame_idx} from {movie_fn}")
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        canvas = pad_frame(frame, (h,w), offset_dims,)
-        frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
-        frame_patch = torch.from_numpy(frame_patch)
-        frame_patch = preprocess_batch(frame_patch[None,:, :, :], ANN.img_size, device=device)        
+    for i_batch in range(0, frames_n, batch_size):
+        end_frame = min(batch_size, frames_n - i_batch)
+        curr_batch = []
+        for frame_idx in range(end_frame):
+            xy = xy_gaze[frame_idx]
+            ret, frame = cap.read()
+            if not ret:
+                raise RuntimeError(f"Failed to read frame {frame_idx} from {movie_fn}")
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            canvas = pad_frame(frame, (h,w), offset_dims,)
+            frame_patch = extract_square_patch(canvas, round(xy[0]), round(xy[1]), sq_side)
+            frame_patch = torch.from_numpy(frame_patch)
+            curr_batch.append(frame_patch)
+        curr_batch = torch.stack(curr_batch, axis=0)
+        frame_patch = preprocess_batch(curr_batch, ANN.img_size, device=device)        
         with torch.no_grad():
             ANN.model(frame_patch)
         for l, f in ANN.get_features().items():
@@ -935,16 +940,17 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
             f_proj = np.squeeze(f @ PCs[l]) 
             features[l].append(f_proj)
         # end for l, f in curr_features:
-        if frame_idx%10 == 0:
-            print_wise(f"processed frame {frame_idx} of {frames_n} in run {run} of {ANN.model_name}")
+        if i_batch%(10*batch_size) == 0:
+            print_wise(f"processed frame {i_batch} of {frames_n} in run {run} of {ANN.model_name}")
     # end for frame_idx in range(frames_n):
 
     for l, final_f in features.items():
-        final_f = np.stack(final_f, axis=1)
+        final_f = np.concatenate(final_f, axis=0)
+        final_f = final_f.T
         with h5py.File(save_names[l], "w") as f:
             f.create_dataset("vecrep", data=final_f)
         # end with h5py.File(save_name, "w") as f:
-        print_wise(f"model {ANN.model_name} saved at {save_names[l]}", rank=rank)
+        print_wise(f"model {ANN.model_name} of shape {final_f.shape} saved at {save_names[l]}", rank=rank)
 # EOF
 
 
@@ -977,10 +983,10 @@ NOTES:
     - PCA components are loaded once and reused across runs.
     - Projection matrix is transposed before use.
 """
-def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub_num: int, ANN, sq_side: int, n_components, PCs_dict, eye_fs, screen_res=(1080, 1920), secs_to_skip=5,): 
+def ANN_extraction_projection_1917_wrapper(paths: dict[str: str], rank: int, sub_num: int, ANN, sq_side: int, n_components, PCs_dict, eye_fs, batch_size, screen_res=(1080, 1920), secs_to_skip=5,): 
     print_wise(f"Start running {ANN.model_name} for sub {sub_num}", rank=rank)
     for irun in range(1, 7):
-        gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, ANN, n_components, PCs_dict, irun, eye_fs, screen_res=(1080, 1920), secs_to_skip=5, )
+        gaze_dep_ANN_extraction(paths, rank, sub_num, sq_side, ANN, n_components, PCs_dict, irun, eye_fs, batch_size, screen_res=(1080, 1920), secs_to_skip=5, )
     # end for irun in range(1, 7):
 # EOF
 
