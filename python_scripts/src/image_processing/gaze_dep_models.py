@@ -921,7 +921,7 @@ def gaze_dep_ANN_extraction(paths: dict[str: str], rank: int, sub_num: int, sq_s
     for i_batch in range(0, frames_n, batch_size):
         end_frame = min(batch_size, frames_n - i_batch)
         curr_batch = []
-        for frame_idx in range(end_frame):
+        for frame_idx in range(i_batch, i_batch+end_frame):
             xy = xy_gaze[frame_idx]
             ret, frame = cap.read()
             if not ret:
