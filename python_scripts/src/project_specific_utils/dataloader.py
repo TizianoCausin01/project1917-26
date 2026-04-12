@@ -67,6 +67,28 @@ def load_meg_data(paths: dict[str: str], sub_num: int, run: int, sensors_group: 
 # EOF
 
 
+"""
+load_concat_regressout_meg
+Loads MEG data across 3 runs, optionally regresses out gaze, and concatenates into a single TimeSeries.
+
+INPUT:
+    - paths: dict[str, str] -> project path dictionary
+    - sub_num: int -> subject number
+    - repetition: int -> repetition index (0-based, selects runs [1–3] or [4–6])
+    - sensors_group: str -> MEG sensors group to load
+    - neu_fs: float -> target sampling frequency for MEG data
+    - gaze_fs: float -> sampling frequency of gaze data
+    - regress_out_gaze: bool | str -> whether/how to regress out gaze
+        - False -> no regression
+        - "lag0" -> regress gaze at same timepoints
+        - "PCR" -> delay-embedded PCR regression
+    - PCs_to_regress_out: int -> number of PCs for PCR regression
+    - timepts_to_regress_out: tuple[int, int] (default=(-100,100)) -> temporal window for delay embedding
+    - rank: int -> process rank for logging
+
+OUTPUT:
+    - neu: TimeSeries -> concatenated MEG signal (features x timepoints)
+"""
 def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs, gaze_fs, regress_out_gaze,  PCs_to_regress_out, timepts_to_regress_out=(-100,100), rank=0):
     neu = []
     print_wise(f"Loading MEG signal: {regress_out_gaze=}", rank)
@@ -97,6 +119,23 @@ def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs
     neu = TimeSeries(np.concatenate(neu, axis=1), neu_fs)
     return neu
 # EOF
+
+
+"""
+load_concat_gaze
+Loads gaze data across 3 runs, preprocesses, and concatenates into a single TimeSeries.
+
+INPUT:
+    - paths: dict[str, str] -> project path dictionary
+    - sub_num: int -> subject number
+    - repetition: int -> repetition index (0-based, selects runs [1–3] or [4–6])
+    - gaze_fs: float -> original gaze sampling frequency
+    - new_fs: float -> target sampling frequency
+    - rank: int -> process rank for logging
+
+OUTPUT:
+    - gaze: TimeSeries -> concatenated gaze signal (2 x timepoints)
+"""
 def load_concat_gaze(paths, sub_num, repetition, gaze_fs, new_fs, rank=0):
     gaze = []
     runs = np.arange(1,4)+3*repetition 
@@ -119,6 +158,29 @@ def load_concat_gaze(paths, sub_num, repetition, gaze_fs, new_fs, rank=0):
     return gaze
 # EOF
 
+
+"""
+load_concat_regressout_mod
+Loads model features across runs, optionally regresses out gaze, and concatenates into a single TimeSeries.
+
+INPUT:
+    - paths: dict[str, str] -> project path dictionary
+    - sub_num: int -> subject number
+    - save_func: callable -> function returning the model file path
+    - model_name: str -> name of the model/layer to load
+    - repetition: int -> repetition index (0-based, selects runs [1–3] or [4–6] if gaze_dep=True)
+    - mod_fs: float -> original model sampling frequency
+    - new_fs: float -> target sampling frequency
+    - *args -> additional arguments passed to save_func
+    - regress_out_gaze: bool (default=True) -> whether to regress out gaze (lag-0)
+    - gaze_dep: bool (default=True) -> whether model is gaze-dependent (affects run indexing)
+    - gaze_fs: float (default=50) -> sampling frequency of gaze data
+    - rank: int -> process rank for logging
+    - **kwargs -> additional keyword arguments passed to save_func
+
+OUTPUT:
+    - mod: TimeSeries -> concatenated model features (features x timepoints)
+"""
 def load_concat_regressout_mod(paths, sub_num, save_func, model_name, repetition, mod_fs, new_fs, *args, regress_out_gaze=True, gaze_dep=True, gaze_fs=50, rank=0, **kwargs):
     print_wise(f"Loading model {model_name}: {regress_out_gaze=}", rank=0)
     runs = np.arange(1,4)+3*repetition if gaze_dep else np.arange(1,4)
@@ -143,7 +205,7 @@ def load_concat_regressout_mod(paths, sub_num, save_func, model_name, repetition
             run_mod = run_mod[3*new_fs:]
         mod.append(run_mod[:])
     len_runs = [i.shape for i in mod]
-    print_wise(f"Shape runs {runs}: {len_runs}", rank=rank)
+    print_wise(f"{model_name}: shape runs {runs}: {len_runs}", rank=rank)
     # end for i_run in range(1,4):
     mod = TimeSeries(np.concatenate(mod, axis=1), new_fs)
     return mod
