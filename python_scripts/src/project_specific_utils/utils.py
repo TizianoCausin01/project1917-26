@@ -223,11 +223,11 @@ INPUT:
 OUTPUT:
     - general_filename: str -> filename encoding all analysis parameters
 """
-def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0"):
+def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, repetition, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0"):
     if analysis == "encoding":
-        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_{iterations_n}iter_lag_{round(len_or_lag/neu_fs)}s"
+        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_{iterations_n}iter_lag_{round(len_or_lag/neu_fs)}s"
     else:
-        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_{full_model_name}_{signal_metric}-{model_metric}_{iterations_n}iter_{pseudotrials_n}pst_len_{round(len_or_lag/neu_fs)}s"
+        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{signal_metric}-{model_metric}_{iterations_n}iter_{pseudotrials_n}pst_len_{round(len_or_lag/neu_fs)}s"
     if sq_side:
         general_filename = general_filename + f"_{sq_side}x{sq_side}patch_regr_out_gaze_{regress_out_gaze}"
     general_filename = general_filename +".mat"
