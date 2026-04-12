@@ -198,4 +198,38 @@ def subsampling_encoding(neu_trials, mod_trials, regression_type, cv_type, max_l
     return final_score.get_array()
 # EOF 
 
+"""
+save_lagged_comparisons
+Generates the filename for saving lagged comparison results (e.g., encoding, RSA, II).
 
+INPUT:
+    - paths: dict[str, str] -> project path dictionary (not used here but kept for consistency)
+    - analysis: str -> type of analysis ("encoding", "RSA", "II", etc.)
+    - sub_num: int -> subject number
+    - sensors_group: str -> MEG sensors group
+    - full_model_name: str -> model/layer name
+    - iterations_n: int -> number of subsampling iterations
+    - len_or_lag: int -> pseudotrial length or max lag (in timepoints)
+    - neu_fs: float -> sampling frequency of neural data (used to convert to seconds)
+    - signal_metric: str | None -> metric for neural data (e.g., distance metric)
+    - model_metric: str | None -> metric for model data
+    - regression_type: str | None -> regression type (for encoding analysis)
+    - PCs_used: int | None -> number of PCs used (for encoding analysis)
+    - score_metric: str | None -> scoring metric (e.g., r2, correlation)
+    - pseudotrials_n: int | None -> number of pseudotrials (for RSA/II)
+    - sq_side: int | None -> patch size (if applicable)
+    - regress_out_gaze: str | int (default="0") -> whether/how gaze was regressed out
+
+OUTPUT:
+    - general_filename: str -> filename encoding all analysis parameters
+"""
+def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0"):
+    if analysis == "encoding":
+        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_{iterations_n}iter_lag_{round(len_or_lag/neu_fs)}s"
+    else:
+        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_{full_model_name}_{signal_metric}-{model_metric}_{iterations_n}iter_{pseudotrials_n}pst_len_{round(len_or_lag/neu_fs)}s"
+    if sq_side:
+        general_filename = general_filename + f"_{sq_side}x{sq_side}patch_regr_out_gaze_{regress_out_gaze}"
+    general_filename = general_filename +".mat"
+    return general_filename
+# EOF
