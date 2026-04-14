@@ -9,7 +9,7 @@ paths = config[ENV]["paths"]
 subjects = config['subjects']
 sys.path.append(paths["src_path"])
 sys.path.append(paths["useful_stuff_path"])
-from project_specific_utils.subsampling_lagged_comparisons import multivariate_lagged_comparisons
+from analyses.subsampling_lagged_comparisons import multivariate_lagged_comparisons
 from project_specific_utils.dataloader import load_concat_regressout_meg
 from useful_stuff.image_processing.computational_models import get_relevant_output_layers
 from useful_stuff.parallel.parallel_funcs import parallel_setup, master_workers_queue
