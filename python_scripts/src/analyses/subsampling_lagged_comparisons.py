@@ -211,7 +211,7 @@ OUTPUT:
 """
 def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, repetition, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0", k=1):
     if analysis == "encoding":
-        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_{iterations_n}iter_lag_{round(len_or_lag/neu_fs)}s"
+        general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_lag_{round(len_or_lag/neu_fs)}s"
     else:
         general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{signal_metric}-{model_metric}_{iterations_n}iter_{pseudotrials_n}pst_len_{round(len_or_lag/neu_fs)}s"
     if sq_side:
@@ -275,5 +275,22 @@ def multivariate_lagged_comparisons(paths, rank, full_model_name, n, analysis_ty
         savemat(p[0], {"II": tot_A2B})
         savemat(p[1], {"II": tot_B2A})
         print_wise(f"{full_model_name} saved at {p[0]}")
+    return None
+# EOF
+
+
+def lagged_encoding_comparisons(paths, rank, full_model_name, n, analysis_type, sub_num, sensors_group, repetition, max_lag, neu_fs, mod_fs, regression_type, score_type, sq_side, regress_out_gaze, n_model_components, model_PCs_to_keep, pooling="all",):
+    regress_out_type = regress_out_gaze if regress_out_gaze else "0"
+    p = save_lagged_comparisons(paths, analysis_type, sub_num, sensors_group, repetition, full_model_name, None, max_lag, neu_fs, regression_type=regression_type, score_metric=score_type, PCs_used=model_PCs_to_keep, sq_side=sq_side, regress_out_gaze=regress_out_type)
+    if os.path.exists(p):
+        print(f"{p} already exists")
+        return None
+    mod_fs = config["movie_fs"]
+    m = load_concat_regressout_mod(paths, sub_num, save_ANN_features, full_model_name, repetition, mod_fs, neu_fs, *(sq_side, n_model_components, pooling), regress_out_gaze=False, gaze_dep=True, gaze_fs=50, rank=rank,)
+    m = TimeSeries(m.get_array()[:model_PCs_to_keep, :, np.newaxis], neu_fs)
+    regression_obj = dyn_linear_encoding(regression_type, 'kf', max_lag, score_type=score_type, n_splits=5)
+    s = regression_obj.crossvalidate_general_dyn(m, n)
+    savemat(p, {"encoding": s.get_array()})
+    print_wise(f"{full_model_name} saved at {p}")
     return None
 # EOF
