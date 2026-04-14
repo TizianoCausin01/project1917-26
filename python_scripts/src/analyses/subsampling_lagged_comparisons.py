@@ -209,7 +209,7 @@ INPUT:
 OUTPUT:
     - general_filename: str -> filename encoding all analysis parameters
 """
-def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, repetition, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0"):
+def save_lagged_comparisons(paths, analysis, sub_num, sensors_group, repetition, full_model_name, iterations_n, len_or_lag, neu_fs, signal_metric=None, model_metric=None, regression_type=None, PCs_used=None, score_metric=None, pseudotrials_n=None, sq_side=None, regress_out_gaze="0", k=1):
     if analysis == "encoding":
         general_filename = f"{paths['data_path']}/results/{analysis}_sub{sub_num:03d}_{sensors_group}_rep{repetition}_{full_model_name}_{PCs_used}PCs_{regression_type}_{score_metric}_{iterations_n}iter_lag_{round(len_or_lag/neu_fs)}s"
     else:
@@ -251,11 +251,12 @@ OUTPUT:
         - II: saves two matrices (A2B and B2A directions)
 """
 def multivariate_lagged_comparisons(paths, rank, full_model_name, n, analysis_type, sub_num, sensors_group, repetition, iterations_n, pseudotrial_len, neu_fs, mod_fs, model_len, signal_metric, model_metric, pseudotrials_n, sq_side, regress_out_gaze, n_model_components, pooling="all",):
+    regress_out_type = regress_out_gaze if regress_out_gaze else "0"
     if analysis_type == "RSA":
-        p = [save_lagged_comparisons(paths, analysis_type, sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_gaze),]
+        p = [save_lagged_comparisons(paths, analysis_type, sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_type),]
     elif analysis_type == "II":
         p = []
-        pA2B = save_lagged_comparisons(paths, analysis_type+"A2B", sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_gaze)
+        pA2B = save_lagged_comparisons(paths, analysis_type+"A2B", sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_type)
         p.append(pA2B)
         pB2A = save_lagged_comparisons(paths, analysis_type+"B2A", sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_gaze)
         p.append(pB2A)
@@ -267,8 +268,6 @@ def multivariate_lagged_comparisons(paths, rank, full_model_name, n, analysis_ty
     m = load_concat_regressout_mod(paths, sub_num, save_ANN_features, full_model_name, repetition, mod_fs, neu_fs, *(sq_side, n_model_components, pooling), regress_out_gaze=False, gaze_dep=True, gaze_fs=50, rank=rank,)
     func = subsampling_RSA if analysis_type == "RSA" else subsampling_II
     tot_A2B, tot_B2A = subsampling_lagged_comparisons(n, m, pseudotrial_len, iterations_n, pseudotrials_n, model_len, func, rank, *(signal_metric, model_metric))
-    if not regress_out_gaze:
-        regress_out_gaze = "0"
     if analysis_type == "RSA":
         savemat(p[0], {"RSA": tot_A2B})
         print_wise(f"{full_model_name} saved at {p[0]}")
