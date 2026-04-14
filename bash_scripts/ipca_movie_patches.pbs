@@ -2,7 +2,7 @@
 #PBS -N ipca_movie_patch
 #PBS -l select=1:ncpus=2:ngpus=1:mem=150gb
 #PBS -q shortGPUQ
-#PBS -l walltime=07:00:00
+#PBS -l walltime=04:00:00
 #PBS -V
 #PBS -o ~/output_jobs/ipca_movie_patch.${PBS_JOBID%%.*}.log
 #PBS -j oe
@@ -22,7 +22,7 @@ cat $PBS_NODEFILE
 which mpiexec
 which python3
 mpiexec -np $NP python3 -u run_ipca_movie_patches.py \
-    --model_name vit_l_16 \
+    --model_name dino_v3_l \
     --n_components 1000 \
     --batch_size 1024 \
     --patches_per_frame 3 \
@@ -31,4 +31,4 @@ mpiexec -np $NP python3 -u run_ipca_movie_patches.py \
     --sq_size 384 \
     --input_size 384 \
     --pooling all \
-    --pkg timm
+    --pkg hf

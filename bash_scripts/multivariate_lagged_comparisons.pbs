@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N multivariate_lagged_comparisons 
+#PBS -l select=1:ncpus=5:ngpus=1:mem=50gb
+#PBS -q shortGPUQ
+#PBS -l walltime=0:30:00
+#PBS -V
+#PBS -o ~/output_jobs/multivariate_lagged_comparisons.${PBS_JOBID%%.*}.log
+#PBS -j oe
+
+exec > ~/output_jobs/multivariate_lagged_comparisons.${PBS_JOBID%%.*}.log 2>&1
+cd /home/tiziano.causin/project1917-26/python_scripts/scripts
+source ~/.bashrc
+source /home/tiziano.causin/project1917-26/.venv/bin/activate 
+module purge
+export OMPI_MCA_hwloc_base_binding_policy=none
+export OMPI_MCA_coll_hcoll_enable=0
+module load OpenMPI/4.1.5-GCC-12.3.0
+NP=$(nproc) #$(cat $PBS_NODEFILE | wc -l)
+echo "NP = $NP"
+cat $PBS_NODEFILE
+which mpiexec
+which python3
+# to run 
+# qsub multivariate_lagged_comparisons.pbs RSA 4 occ 0 600 100 1000 correlation correlation 100 50 PCR 100 alexnet 1000 all torchvision
+mpiexec -np $NP	python3 run_multivariate_lagged_comparisons.py \
+    --analysis_type "$analysis_type" \
+    --sub_num "$sub_num" \
+    --sensors_group "$sensors_group" \
+    --repetition "$repetition" \
+    --pseudotrial_len "$pseudotrial_len" \
+    --pseudotrials_n "$pseudotrials_n" \
+    --iterations_n "$iterations_n" \
+    --signal_metric "$signal_metric" \
+    --model_metric "$model_metric" \
+    --neu_fs "$neu_fs" \
+    --gaze_fs "$gaze_fs" \
+    --regress_out_gaze "$regress_out_gaze" \
+    --timepts_to_regress_out "$timepts_to_regress_out" \
+    --PCs_to_regress_out "$PCs_to_regress_out" \
+    --model_name "$model_name" \
+    --n_model_components "$n_model_components" \
+    --sq_side "$sq_side" \
+    --pooling "$pooling" \
+    --pkg "$pkg"
