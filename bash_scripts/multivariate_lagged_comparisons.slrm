@@ -1,0 +1,38 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=6:00:00
+#SBATCH --ntasks=8 # number of processes
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
+#SBATCH --account=livingstone       # account name
+#SBATCH --partition=short # partition name
+#SBATCH --job-name=multivariate_lagged_comparisons
+#SBATCH --output=/home/tic569/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+set -e
+source ~/.bashrc
+cd /home/tic569/project1917-26/python_scripts/scripts
+module load gcc/14.2.0
+module load python/3.13.1
+module load openmpi
+source ~/project1917-26/.venv/bin/activate
+srun python3 run_multivariate_lagged_comparisons.py \
+    --analysis_type "$analysis_type" \
+    --sub_num "$sub_num" \
+    --sensors_group "$sensors_group" \
+    --repetition "$repetition" \
+    --pseudotrial_len "$pseudotrial_len" \
+    --pseudotrials_n "$pseudotrials_n" \
+    --iterations_n "$iterations_n" \
+    --signal_metric "$signal_metric" \
+    --model_metric "$model_metric" \
+    --neu_fs "$neu_fs" \
+    --gaze_fs "$gaze_fs" \
+    --regress_out_gaze "$regress_out_gaze" \
+    --timepts_to_regress_out "$timepts_to_regress_out" \
+    --PCs_to_regress_out "$PCs_to_regress_out" \
+    --model_name "$model_name" \
+    --n_model_components "$n_model_components" \
+    --sq_side "$sq_side" \
+    --pooling "$pooling" \
+    --pkg "$pkg"
