@@ -1,0 +1,38 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=6:00:00
+#SBATCH --ntasks=8 # number of processes
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
+#SBATCH --account=livingstone       # account name
+#SBATCH --partition=short # partition name
+#SBATCH --job-name=multivariate_lagged_comparisons
+#SBATCH --output=/home/tic569/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+set -e
+source ~/.bashrc
+cd /home/tic569/project1917-26/python_scripts/scripts
+module load gcc/14.2.0
+module load python/3.13.1
+module load openmpi
+source ~/project1917-26/.venv/bin/activate
+#mpiexec -np 8 python3 run_lagged_encoding_comparisons.py --analysis_type "encoding" --sub_num 3 --sensors_group occ --repetition 0 --max_lag 100 --regression_type ridge --score_type corr --neu_fs 100 --gaze_fs 50 --regress_out_gaze PCR --timepts_to_regress_out 100 --PCs_to_regress_out 50 --model_name dino_v3_l --n_model_components 1000 --sq_side 384 --model_PCs_to_keep 50 --pooling all --pkg hf
+srun python3 run_multivariate_lagged_comparisons.py \
+    --analysis_type "$analysis_type" \
+    --sub_num "$sub_num" \
+    --sensors_group "$sensors_group" \
+    --repetition "$repetition" \
+    --max_lag "$max_lag" \
+    --regression_type "$regression_type" \
+    --score_type "$score_type" \
+    --neu_fs "$neu_fs" \
+    --gaze_fs "$gaze_fs" \
+    --regress_out_gaze "$regress_out_gaze" \
+    --timepts_to_regress_out "$timepts_to_regress_out" \
+    --PCs_to_regress_out "$PCs_to_regress_out" \
+    --model_name "$model_name" \
+    --n_model_components "$n_model_components" \
+    --model_PCs_to_keep "$model_PCs_to_keep" \
+    --sq_side "$sq_side" \
+    --pooling "$pooling" \
+    --pkg "$pkg"
