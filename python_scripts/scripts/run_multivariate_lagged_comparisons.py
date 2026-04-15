@@ -9,6 +9,7 @@ paths = config[ENV]["paths"]
 subjects = config['subjects']
 sys.path.append(paths["src_path"])
 sys.path.append(paths["useful_stuff_path"])
+from useful_stuff.general_utils.utils import print_wise
 from analyses.subsampling_lagged_comparisons import multivariate_lagged_comparisons
 from project_specific_utils.dataloader import load_concat_regressout_meg
 from useful_stuff.image_processing.computational_models import get_relevant_output_layers
@@ -46,6 +47,8 @@ mod_fs = config["movie_fs"]
 model_len = [round(i*cfg.neu_fs/config["movie_fs"]) for i in config["model_len"]]
 cfg.timepts_to_regress_out = (-cfg.timepts_to_regress_out, cfg.timepts_to_regress_out)
 _, rank, _ = parallel_setup()
+if rank==0:
+    print_wise(cfg, rank=0)
 if rank != 0:
     n = load_concat_regressout_meg(paths, cfg.sub_num, cfg.repetition, cfg.sensors_group, cfg.neu_fs, cfg.gaze_fs, cfg.regress_out_gaze, cfg.PCs_to_regress_out, timepts_to_regress_out=cfg.timepts_to_regress_out, rank=rank)
 else:
