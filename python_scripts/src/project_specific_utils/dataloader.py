@@ -89,34 +89,56 @@ INPUT:
 OUTPUT:
     - neu: TimeSeries -> concatenated MEG signal (features x timepoints)
 """
-def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs, gaze_fs, regress_out_gaze,  PCs_to_regress_out, timepts_to_regress_out=(-100,100), rank=0):
+def load_concat_regressout_meg_(paths, sub_num, repetition, sensors_group, neu_fs, gaze_fs, regress_out_gaze,  PCs_to_regress_out, timepts_to_regress_out=(-100,100), rank=0):
     neu = []
     print_wise(f"Loading MEG signal: {regress_out_gaze=}", rank)
     runs = np.arange(1,4)+3*repetition 
+    nans_rows = []
     for idx, i_run in enumerate(runs):
         run_neu, labels = load_meg_data(paths, sub_num, i_run, sensors_group, neu_fs)
+        if np.any(np.isnan(run_neu)):
+            print_wise(i_run, "contains nan")
         run_neu.z_score_feats()
         model_len = round(config["model_len"][idx]*neu_fs/config["movie_fs"])
         run_neu = TimeSeries(run_neu[:model_len], run_neu.get_fs())
+        # checks if there is any sensor that has been discarded
+        nan_positions = np.argwhere(np.isnan(run_neu.array))
+        if nan_positions.size > 0:
+            print(f"Total NaNs: {nan_positions.shape[0]}")
+        rows_with_nan = np.unique(nan_positions[:, 0])
+        if rows_with_nan.size > 0:
+            for bad_row in rows_with_nan:
+                if np.all(np.isnan(run_neu.array[bad_row, :])):  
+                    nans_rows.append(bad_row)
+                else:
+                    raise ValueError(f"Not all elements in {bad_row} are NaNs")
+                # end
+        if idx == 1: # i.e. if it is the 2nd part of the movie (run 2 or run 5)
+            run_neu = run_neu[3*neu_fs:]
+        neu.append(run_neu[:])
+    # end for i_run in range(1,4):
+    for idx, run in enumerate(neu):
+        neu[idx] = np.delete(run, nans_rows, axis=0)
+
+    for idx, run_neu in enumerate(neu):
         if regress_out_gaze:
-            run_gaze, _ = load_eyetracking_data(paths, sub_num, i_run, gaze_fs, xy=True)
+            run_gaze, _ = load_eyetracking_data(paths, sub_num, idx +1+ repetition*3, gaze_fs, xy=True)
             run_gaze.z_score_feats()
             run_gaze.resample(run_gaze.get_fs())
             run_gaze = TimeSeries(run_gaze[:model_len], run_gaze.get_fs())
+            run_neu = TimeSeries(run_neu, neu_fs)
             dyn_regr_obj = dyn_linear_encoding('lr', 'same', None)
             if regress_out_gaze == "PCR":
                 run_neu, _ = dyn_regr_obj.delay_embed_PCR_regress_out(run_gaze, run_neu, timepts_to_regress_out, PCs_to_keep=PCs_to_regress_out, pad_mode='edge', crop_end=True)
             elif regress_out_gaze == "lag0":
                 run_neu = dyn_regr_obj.pointwise_regress_out(run_gaze, run_neu, regression_type=None) 
             # end if cfg.regr_out_eyes == "PCR":
-        # end if cfg.regr_out_eyes:
-        if idx == 1: # i.e. if it is the 2nd part of the movie (run 2 or run 5)
-            run_neu = run_neu[3*neu_fs:]
-        neu.append(run_neu[:])
-    # end for i_run in range(1,4):
+        neu[idx] = run_neu[:]
+    # end if cfg.regr_out_eyes:
     len_runs = [i.shape for i in neu]
     print_wise(f"Shape runs {runs}: {len_runs}", rank=rank)
-    neu = TimeSeries(np.concatenate(neu, axis=1), neu_fs)
+    neu = np.concatenate(neu, axis=1)
+    neu = TimeSeries(neu, neu_fs)
     return neu
 # EOF
 
