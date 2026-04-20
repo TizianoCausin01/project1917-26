@@ -93,13 +93,13 @@ def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs
     print_wise(f"Loading MEG signal: {regress_out_gaze=}", rank)
     runs = np.arange(1,4)+3*repetition 
     nans_rows = []
+    model_len = [round(length*neu_fs/config["movie_fs"]) for length in config["model_len"]]
     for idx, i_run in enumerate(runs):
         run_neu, labels = load_meg_data(paths, sub_num, i_run, sensors_group, neu_fs)
         if np.any(np.isnan(run_neu)):
             print_wise(i_run, "contains nan")
         run_neu.z_score_feats()
-        model_len = round(config["model_len"][idx]*neu_fs/config["movie_fs"])
-        run_neu = TimeSeries(run_neu[:model_len], run_neu.get_fs())
+        run_neu = TimeSeries(run_neu[:model_len[idx]], run_neu.get_fs())
         # checks if there is any sensor that has been discarded
         nan_positions = np.argwhere(np.isnan(run_neu.array))
         if nan_positions.size > 0:
@@ -124,7 +124,7 @@ def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs
             run_gaze, _ = load_eyetracking_data(paths, sub_num, idx +1+ repetition*3, gaze_fs, xy=True)
             run_gaze.z_score_feats()
             run_gaze.resample(run_gaze.get_fs())
-            run_gaze = TimeSeries(run_gaze[:model_len], run_gaze.get_fs())
+            run_gaze = TimeSeries(run_gaze[:model_len[idx]], run_gaze.get_fs())
             run_neu = TimeSeries(run_neu, neu_fs)
             dyn_regr_obj = dyn_linear_encoding('lr', 'same', None)
             if regress_out_gaze == "PCR":
@@ -132,6 +132,21 @@ def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs
             elif regress_out_gaze == "lag0":
                 run_neu = dyn_regr_obj.pointwise_regress_out(run_gaze, run_neu, regression_type=None) 
             # end if cfg.regr_out_eyes == "PCR":
+        # for some subjects there is a minimal difference of timing (the gaze is 1 datapoint shorter than the model)
+        if idx == 1:
+            timepts_diff = np.abs(len(run_neu)-(model_len[idx]- 3*neu_fs)) 
+        else:
+            timepts_diff = np.abs(len(run_neu)-model_len[idx]) 
+        if timepts_diff == 0:
+            pass # nothing to check
+        elif timepts_diff > 0 and timepts_diff < 2:
+            # the syntax of pad wants a tuple of tuples - ((rows_to_pad_at_st, rows_to_pad_at_end), (cols_to_pad_at_st, cols_to_pad_at_end))
+            print_wise(f"Padding {timepts_diff} timepoints to the neural signal to match model length")
+            run_neu = np.pad(run_neu.array, ((0, 0), (0, timepts_diff)), mode='edge') # edge means that we are repeating the edge values
+        elif timepts_diff > 2:
+            raise IndexError(
+                f"The difference in length between the model and the regress_out neural signal is too big ({timepts_diff})"
+            )
         neu[idx] = run_neu[:]
     # end if cfg.regr_out_eyes:
     len_runs = [i.shape for i in neu]
