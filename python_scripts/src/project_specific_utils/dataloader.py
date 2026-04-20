@@ -1,4 +1,4 @@
-
+_
 import os, yaml, sys
 import numpy as np
 import h5py
@@ -162,15 +162,13 @@ def load_concat_gaze(paths, sub_num, repetition, gaze_fs, new_fs, rank=0):
     gaze = []
     runs = np.arange(1,4)+3*repetition 
     for idx, i_run in enumerate(runs):
+        model_len = round(config["model_len"][idx]*new_fs/config["movie_fs"])
         run_gaze, _ = load_eyetracking_data(paths, sub_num, i_run, gaze_fs, xy=True)
         run_gaze.z_score_feats()
         run_gaze.resample(new_fs)
-        run_gaze = TimeSeries(run_gaze[:len_mod[idx]], run_gaze.get_fs())
-        model_len = round(config["model_len"][idx]*new_fs/config["movie_fs"])
-        run_gaze = run_gaze[:, :model_len]
+        run_gaze = run_gaze[:model_len]
         if idx == 1: # i.e. if it is the 2nd part of the movie (run 2 or run 5)
-            print(i_run)
-            run_gaze = run_gaze[3*new_fs:]
+            run_gaze = run_gaze[:, 3*new_fs:]
         gaze.append(run_gaze)
         # end if cfg.regr_out_eyes:
     # end for i_run in range(1,4):
@@ -179,7 +177,6 @@ def load_concat_gaze(paths, sub_num, repetition, gaze_fs, new_fs, rank=0):
     gaze = TimeSeries(np.concatenate(gaze, axis=1), new_fs)
     return gaze
 # EOF
-
 
 """
 load_concat_regressout_mod
