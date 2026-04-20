@@ -89,7 +89,7 @@ INPUT:
 OUTPUT:
     - neu: TimeSeries -> concatenated MEG signal (features x timepoints)
 """
-def load_concat_regressout_meg_(paths, sub_num, repetition, sensors_group, neu_fs, gaze_fs, regress_out_gaze,  PCs_to_regress_out, timepts_to_regress_out=(-100,100), rank=0):
+def load_concat_regressout_meg(paths, sub_num, repetition, sensors_group, neu_fs, gaze_fs, regress_out_gaze,  PCs_to_regress_out, timepts_to_regress_out=(-100,100), rank=0):
     neu = []
     print_wise(f"Loading MEG signal: {regress_out_gaze=}", rank)
     runs = np.arange(1,4)+3*repetition 
