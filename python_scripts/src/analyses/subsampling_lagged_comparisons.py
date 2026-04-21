@@ -294,3 +294,37 @@ def lagged_encoding_comparisons(paths, rank, full_model_name, n, analysis_type, 
     print_wise(f"{full_model_name} saved at {p}")
     return None
 # EOF
+
+
+def multivariate_lagged_comparisons_temp(paths, rank, task_tuple, analysis_type, sensors_group, iterations_n, pseudotrial_len, neu_fs, mod_fs, model_len, signal_metric, model_metric, pseudotrials_n, sq_side, regress_out_gaze, gaze_fs, timepts_to_regress_out, PCs_to_regress_out, n_model_components, pooling="all",):
+    print(task_tuple)
+    sub_num, full_model_name, repetition = task_tuple
+    regress_out_type = regress_out_gaze if regress_out_gaze else "0"
+    if analysis_type == "RSA":
+        p = [save_lagged_comparisons(paths, analysis_type, sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_type),]
+    elif analysis_type == "II":
+        p = []
+        pA2B = save_lagged_comparisons(paths, analysis_type+"A2B", sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_type)
+        p.append(pA2B)
+        pB2A = save_lagged_comparisons(paths, analysis_type+"B2A", sub_num, sensors_group, repetition, full_model_name, iterations_n, pseudotrial_len, neu_fs, signal_metric=signal_metric, model_metric=model_metric, pseudotrials_n=pseudotrials_n, sq_side=sq_side, regress_out_gaze=regress_out_gaze)
+        p.append(pB2A)
+    if all(os.path.exists(path) for path in p):
+        print(f"{p[0]} already exists")
+        return None
+    mod_fs = config["movie_fs"]
+    model_len = [round(i*neu_fs/config["movie_fs"]) for i in config["model_len"]]
+    n = load_concat_regressout_meg(paths,sub_num, repetition, sensors_group, neu_fs, 50, regress_out_gaze, PCs_to_regress_out, timepts_to_regress_out=timepts_to_regress_out, rank=rank)
+
+    m = load_concat_regressout_mod(paths, sub_num, save_ANN_features, full_model_name, repetition, mod_fs, neu_fs, *(sq_side, n_model_components, pooling), regress_out_gaze=False, gaze_dep=True, gaze_fs=50, rank=rank,)
+    func = subsampling_RSA if analysis_type == "RSA" else subsampling_II
+    tot_A2B, tot_B2A = subsampling_lagged_comparisons(n, m, pseudotrial_len, iterations_n, pseudotrials_n, model_len, func, rank, *(signal_metric, model_metric))
+    if analysis_type == "RSA":
+        savemat(p[0], {"RSA": tot_A2B})
+        print_wise(f"{full_model_name} saved at {p[0]}")
+    elif analysis_type == "II":
+        savemat(p[0], {"II": tot_A2B})
+        savemat(p[1], {"II": tot_B2A})
+        print_wise(f"{full_model_name} saved at {p[0]}")
+    return None
+# EOF
+
