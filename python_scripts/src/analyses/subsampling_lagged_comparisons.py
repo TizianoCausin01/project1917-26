@@ -283,7 +283,7 @@ def lagged_encoding_comparisons(paths, rank, full_model_name, n, analysis_type, 
     regress_out_type = regress_out_gaze if regress_out_gaze else "0"
     p = save_lagged_comparisons(paths, analysis_type, sub_num, sensors_group, repetition, full_model_name, None, max_lag, neu_fs, regression_type=regression_type, score_metric=score_type, PCs_used=model_PCs_to_keep, sq_side=sq_side, regress_out_gaze=regress_out_type)
     if os.path.exists(p):
-        print(f"{p} already exists")
+        print_wise(f"{p} already exists", rank=rank)
         return None
     mod_fs = config["movie_fs"]
     m = load_concat_regressout_mod(paths, sub_num, save_ANN_features, full_model_name, repetition, mod_fs, neu_fs, *(sq_side, n_model_components, pooling), regress_out_gaze=False, gaze_dep=True, gaze_fs=50, rank=rank,)
@@ -291,7 +291,7 @@ def lagged_encoding_comparisons(paths, rank, full_model_name, n, analysis_type, 
     regression_obj = dyn_linear_encoding(regression_type, 'kf', max_lag, score_type=score_type, n_splits=5)
     s = regression_obj.crossvalidate_general_dyn(m, n)
     savemat(p, {"encoding": s.get_array()})
-    print_wise(f"{full_model_name} saved at {p}")
+    print_wise(f"{full_model_name} saved at {p}", rank=rank)
     return None
 # EOF
 
