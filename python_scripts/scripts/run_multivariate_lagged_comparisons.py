@@ -20,9 +20,7 @@ from useful_stuff.parallel.parallel_funcs import parallel_setup, master_workers_
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--analysis_type", type=str)
-parser.add_argument("--sub_num", type=int)
 parser.add_argument("--sensors_group", type=str)
-parser.add_argument("--repetition", type=int)
 parser.add_argument("--pseudotrial_len", type=int)
 parser.add_argument("--pseudotrials_n", type=int)
 parser.add_argument("--iterations_n", type=int)
@@ -42,17 +40,20 @@ parser.add_argument("--model_metric", type=str)
 
 cfg = parser.parse_args()
 layer_names = get_relevant_output_layers(cfg.model_name, pkg=cfg.pkg) 
-task_list = [f"{cfg.model_name}_{l}" for l in layer_names]
 mod_fs = config["movie_fs"]
+subjects = config["subjects"][:10]
+layers = [f"{cfg.model_name}_{l}" for l in layer_names]
+repetitions = [0, 1]
+task_list = [
+    (subject, layer, rep)
+    for subject in subjects
+    for layer in layers
+    for rep in repetitions
+]
 model_len = [round(i*cfg.neu_fs/config["movie_fs"]) for i in config["model_len"]]
 cfg.timepts_to_regress_out = (-cfg.timepts_to_regress_out, cfg.timepts_to_regress_out)
 _, rank, _ = parallel_setup()
 if rank==0:
     print_wise(cfg, rank=0)
-if rank != 0:
-    n = load_concat_regressout_meg(paths, cfg.sub_num, cfg.repetition, cfg.sensors_group, cfg.neu_fs, cfg.gaze_fs, cfg.regress_out_gaze, cfg.PCs_to_regress_out, timepts_to_regress_out=cfg.timepts_to_regress_out, rank=rank)
-else:
-    n = None
-# end if rank != 0:
 
-master_workers_queue(task_list, paths, multivariate_lagged_comparisons, *(n, cfg.analysis_type, cfg.sub_num, cfg.sensors_group, cfg.repetition, cfg.iterations_n, cfg.pseudotrial_len, cfg.neu_fs, mod_fs, model_len, cfg.signal_metric, cfg.model_metric, cfg.pseudotrials_n, cfg.sq_side, cfg.regress_out_gaze, cfg.n_model_components), **{"pooling": cfg.pooling}) 
+master_workers_queue(task_list, paths, multivariate_lagged_comparisons, *(cfg.analysis_type, cfg.sensors_group, cfg.iterations_n, cfg.pseudotrial_len, cfg.neu_fs, mod_fs, model_len, cfg.signal_metric, cfg.model_metric, cfg.pseudotrials_n, cfg.sq_side, cfg.regress_out_gaze, cfg.gaze_fs, cfg.timepts_to_regress_out, cfg.PCs_to_regress_out, cfg.n_model_components), **{"pooling": cfg.pooling}) 
