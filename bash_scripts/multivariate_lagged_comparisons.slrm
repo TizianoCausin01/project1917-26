@@ -2,9 +2,9 @@
 
 #SBATCH --nodes=1
 #SBATCH --time=12:00:00
-#SBATCH --ntasks=9 # number of processes
+#SBATCH --ntasks=13 # number of processes
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --mem=40G
 #SBATCH --account=livingstone       # account name
 #SBATCH --partition=short # partition name
 #SBATCH --job-name=multivariate_lagged_comparisons
@@ -18,9 +18,7 @@ module load openmpi
 source ~/project1917-26/.venv/bin/activate
 srun python3 run_multivariate_lagged_comparisons.py \
     --analysis_type "$analysis_type" \
-    --sub_num "$sub_num" \
     --sensors_group "$sensors_group" \
-    --repetition "$repetition" \
     --pseudotrial_len "$pseudotrial_len" \
     --pseudotrials_n "$pseudotrials_n" \
     --iterations_n "$iterations_n" \

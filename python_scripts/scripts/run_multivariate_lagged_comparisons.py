@@ -41,7 +41,7 @@ parser.add_argument("--model_metric", type=str)
 cfg = parser.parse_args()
 layer_names = get_relevant_output_layers(cfg.model_name, pkg=cfg.pkg) 
 mod_fs = config["movie_fs"]
-subjects = config["subjects"][:10]
+subjects = config["subjects"]
 layers = [f"{cfg.model_name}_{l}" for l in layer_names]
 repetitions = [0, 1]
 task_list = [
