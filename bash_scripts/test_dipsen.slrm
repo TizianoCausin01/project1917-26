@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=02:00:00
+#SBATCH --ntasks=9 # number of processes
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=5G
+#SBATCH --partition=all-compute-cpu # partition name
+#SBATCH --job-name=test_dipsen
+#SBATCH --output=/home/tiziano.causin/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+set -e
+source ~/.bashrc
+cd /home/tiziano.causin/project1917-26/python_scripts/scripts
+conda deactivate
+module load openmpi5
+source ~/project1917-26/.venv/bin/activate
+# Evita oversubscription: ogni task Slurm usa al massimo i thread assegnati.
+export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export NUMEXPR_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+which python
+srun python3 run_test_dipsen.py 
