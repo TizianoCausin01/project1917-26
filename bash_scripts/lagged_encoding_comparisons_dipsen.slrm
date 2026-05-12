@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=36:00:00
+#SBATCH --ntasks=25 # number of processes
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=150G
+#SBATCH --partition=all-compute-cpu # partition name
+#SBATCH --job-name=lagged_linear_encoding
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=causintiziano@gmail.com
+#SBATCH --output=/home/tiziano.causin/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+set -e
+source ~/.bashrc
+cd /home/tiziano.causin/project1917-26/python_scripts/scripts
+conda deactivate
+module load openmpi5
+# Evita oversubscription: ogni task Slurm usa al massimo i thread assegnati.
+export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export NUMEXPR_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+source ~/project1917-26/.venv/bin/activate
+#mpiexec -np 8 python3 run_lagged_encoding_comparisons.py --analysis_type "encoding" --sub_num 3 --sensors_group occ --repetition 0 --max_lag 100 --regression_type ridge --score_type corr --neu_fs 100 --gaze_fs 50 --regress_out_gaze PCR --timepts_to_regress_out 100 --PCs_to_regress_out 50 --model_name dino_v3_l --n_model_components 1000 --sq_side 384 --model_PCs_to_keep 50 --pooling all --pkg hf
+mpiexec --bind-to none -np ${SLURM_NTASKS} python3 run_lagged_encoding_comparisons.py \
+    --analysis_type "$analysis_type" \
+    --sensors_group "$sensors_group" \
+    --max_lag "$max_lag" \
+    --regression_type "$regression_type" \
+    --score_type "$score_type" \
+    --neu_fs "$neu_fs" \
+    --gaze_fs "$gaze_fs" \
+    --regress_out_gaze "$regress_out_gaze" \
+    --timepts_to_regress_out "$timepts_to_regress_out" \
+    --PCs_to_regress_out "$PCs_to_regress_out" \
+    --model_name "$model_name" \
+    --n_model_components "$n_model_components" \
+    --model_PCs_to_keep "$model_PCs_to_keep" \
+    --sq_side "$sq_side" \
+    --pooling "$pooling" \
+    --pkg "$pkg"

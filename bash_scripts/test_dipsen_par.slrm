@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --time=02:00:00
+#SBATCH --ntasks=9 # number of processes
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
+#SBATCH --partition=all-compute-cpu # partition name
+#SBATCH --job-name=multivariate_lagged_comparisons
+#SBATCH --chdir=/home/tiziano.causin/project1917-26/python_scripts/scripts
+#SBATCH --output=/home/tiziano.causin/output_jobs/%x.%j.out   # file name will be *job_name*.*job_id*
+set -e
+source ~/.bashrc
+source /opt/ohpc/admin/lmod/lmod/init/bash
+source /etc/profile.d/zz-ohpc-modulepath.sh
+conda deactivate
+module purge
+module load gnu15 openmpi5
+export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export NUMEXPR_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+source ~/project1917-26/.venv/bin/activate
+export LD_LIBRARY_PATH="$(printf '%s' "$LD_LIBRARY_PATH" | tr ':' '\n' | grep -v "^$HOME/local/lib$" | paste -sd: -)"
+srun --mpi=pmix python3 run_dipsen_par_test.py

@@ -22,7 +22,7 @@ hpc_unitn:
 dipsen_hpc:
   paths:
     src_path: "/home/tiziano.causin/project1917-26/python_scripts/src"
-    data_path: "/mnt/storage/tier2/ingdev/projects/TIZIANO/1917_nas/"
+    data_path: "/mnt/storage/tier2/ingdev/projects/TIZIANO/1917_nas"
     useful_stuff_path: "/home/tiziano.causin/useful_stuff/python_scripts/src"
 
 tiziano_local:
@@ -32,6 +32,6 @@ tiziano_local:
     useful_stuff_path: "/Users/tizianocausin/Desktop/useful_stuff/python_scripts/src"
 
 
-subjects: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20] #, 21, 22, 23, 25, 28, 30, 31, 34]
+subjects: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] #, 21, 22, 23, 25, 28, 30, 31, 34]
 movie_fs: 23.976
 model_len: [20950, 20758, 18958]
